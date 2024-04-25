@@ -31,6 +31,12 @@ struct table_proc_priv {
 	FILE		*fp;
 	char		*line;
 	size_t		 linesize;
+
+	/*
+	 * The last ID used in a request.  At the moment the protocol
+	 * is synchronous from our point of view, so it's used to
+	 * assert that the table replied with the correct ID.
+	 */
 	char		 lastid[16];
 };
 
