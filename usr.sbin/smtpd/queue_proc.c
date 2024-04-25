@@ -287,7 +287,7 @@ queue_proc_init(struct passwd *pw, int server, const char *conf)
 	uint32_t	version;
 	int		fd;
 
-	fd = fork_proc_backend("queue", conf, "queue-proc");
+	fd = fork_proc_backend("queue", conf, "queue-proc", 0);
 	if (fd == -1)
 		fatalx("queue-proc: exiting");
 

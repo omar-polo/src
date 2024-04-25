@@ -100,7 +100,7 @@ scheduler_proc_init(const char *conf)
 	int		fd, r;
 	uint32_t	version;
 
-	fd = fork_proc_backend("scheduler", conf, "scheduler-proc");
+	fd = fork_proc_backend("scheduler", conf, "scheduler-proc", 0);
 	if (fd == -1)
 		fatalx("scheduler-proc: exiting");
 

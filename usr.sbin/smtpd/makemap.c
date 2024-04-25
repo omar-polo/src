@@ -57,7 +57,8 @@ enum output_type {
  * Stub functions so that makemap compiles using minimum object files.
  */
 int
-fork_proc_backend(const char *backend, const char *conf, const char *procname)
+fork_proc_backend(const char *backend, const char *conf, const char *procname,
+    int do_stdout)
 {
 	return (-1);
 }
