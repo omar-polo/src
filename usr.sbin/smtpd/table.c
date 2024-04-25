@@ -87,6 +87,38 @@ table_service_name(enum table_service s)
 	return "???";
 }
 
+int
+table_service_from_name(const char *service)
+{
+	if (!strcmp(service, "none"))
+		return K_NONE;
+	if (!strcmp(service, "alias"))
+		return K_ALIAS;
+	if (!strcmp(service, "domain"))
+	    	return K_DOMAIN;
+	if (!strcmp(service, "credentials"))
+	    	return K_CREDENTIALS;
+	if (!strcmp(service, "netaddr"))
+	    	return K_NETADDR;
+	if (!strcmp(service, "userinfo"))
+	    	return K_USERINFO;
+	if (!strcmp(service, "source"))
+	    	return K_SOURCE;
+	if (!strcmp(service, "mailaddr"))
+	    	return K_MAILADDR;
+	if (!strcmp(service, "addrname"))
+	    	return K_ADDRNAME;
+	if (!strcmp(service, "mailaddrmap"))
+	    	return K_MAILADDRMAP;
+	if (!strcmp(service, "relayhost"))
+	    	return K_RELAYHOST;
+	if (!strcmp(service, "string"))
+	    	return K_STRING;
+	if (!strcmp(service, "regex"))
+	    	return K_REGEX;
+	return (-1);
+}
+
 struct table *
 table_find(struct smtpd *conf, const char *name)
 {

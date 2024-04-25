@@ -1641,6 +1641,7 @@ struct stat_value *stat_timespec(struct timespec *);
 
 /* table.c */
 const char *table_service_name(enum table_service);
+int table_service_from_name(const char *);
 struct table *table_find(struct smtpd *, const char *);
 struct table *table_create(struct smtpd *, const char *, const char *,
     const char *);

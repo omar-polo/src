@@ -118,9 +118,8 @@ static int
 table_proc_open(struct table *table)
 {
 	struct table_proc_priv	*priv;
-	const char		*service;
 	ssize_t			 len;
-	int			 services = 0;
+	int			 service, services = 0;
 	int			 fd;
 
 	priv = xcalloc(1, sizeof(*priv));
@@ -145,35 +144,13 @@ table_proc_open(struct table *table)
 		if (strncmp(priv->line, "register|", 9) != 0)
 			fatalx("table-proc: invalid handshake reply");
 
-		service = priv->line + 9;
-		if (!strcmp(service, "ready"))
-			break;
-		else if (!strcmp(service, "alias"))
-			services |= K_ALIAS;
-		else if (!strcmp(service, "domain"))
-			services |= K_DOMAIN;
-		else if (!strcmp(service, "credentials"))
-			services |= K_CREDENTIALS;
-		else if (!strcmp(service, "netaddr"))
-			services |= K_NETADDR;
-		else if (!strcmp(service, "userinfo"))
-			services |= K_USERINFO;
-		else if (!strcmp(service, "source"))
-			services |= K_SOURCE;
-		else if (!strcmp(service, "mailaddr"))
-			services |= K_MAILADDR;
-		else if (!strcmp(service, "addrname"))
-			services |= K_ADDRNAME;
-		else if (!strcmp(service, "mailaddrmap"))
-			services |= K_MAILADDRMAP;
-		else if (!strcmp(service, "relayhost"))
-			services |= K_RELAYHOST;
-		else if (!strcmp(service, "string"))
-			services |= K_STRING;
-		else if (!strcmp(service, "regex"))
-			services |= K_REGEX;
-		else
-			fatalx("table-proc: unknown service %s", service);
+		service = table_service_from_name(priv->line + 9);
+		if (service == -1 || service == K_NONE) {
+			fatalx("table-proc: unknown service %s",
+			    priv->line + 9);
+		}
+
+		services |= service;
 	}
 
 	if (ferror(priv->fp))
