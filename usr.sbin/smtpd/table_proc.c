@@ -90,8 +90,7 @@ table_proc_recv(struct table *table, const char *type)
 
 	if ((linelen = getline(&priv->line, &priv->linesize, priv->in)) == -1)
 		fatal("table-proc: getline");
-	if (priv->line[linelen - 1] == '\n')
-		priv->line[--linelen] = '\0';
+	priv->line[strcspn(priv->line, "\n")] = '\0';
 	l = priv->line;
 
 	len = strlen(type);
@@ -152,8 +151,7 @@ table_proc_open(struct table *table)
 		fatalx("table-proc: fflush");
 
 	while ((len = getline(&priv->line, &priv->linesize, priv->in)) != -1) {
-		if (priv->line[len - 1] == '\n')
-			priv->line[--len] = '\0';
+		priv->line[strcspn(priv->line, "\n")] = '\0';
 
 		if (strncmp(priv->line, "register|", 9) != 0)
 			fatalx("table-proc: invalid handshake reply");
