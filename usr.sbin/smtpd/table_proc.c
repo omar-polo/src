@@ -57,7 +57,6 @@ table_proc_send(struct table *table, const char *type, int service,
 	struct timeval		 tv;
 
 	gettimeofday(&tv, NULL);
-
 	fprintf(priv->fp, "table|%s|%lld.%06ld|%s|%s",
 	    PROTOCOL_VERSION, (long long)tv.tv_sec, (long)tv.tv_usec,
 	    table->t_name, type);
@@ -132,8 +131,6 @@ table_proc_open(struct table *table)
 	if ((priv->fp = fdopen(fd, "r+")) == NULL)
 		fatalx("table-proc: fdopen");
 
-	log_warnx("before doing the handshake with %s", table->t_name);
-
 	fprintf(priv->fp, "config|smtpd-version|"SMTPD_VERSION"\n");
 	fprintf(priv->fp, "config|protocol|"PROTOCOL_VERSION"\n");
 	fprintf(priv->fp, "config|tablename|%s\n", table->t_name);
@@ -184,8 +181,6 @@ table_proc_open(struct table *table)
 
 	if (services == 0)
 		fatalx("table-proc: no services registered");
-
-	log_warnx("table %s successfully registered", table->t_name);
 
 	table->t_handle = priv;
 
