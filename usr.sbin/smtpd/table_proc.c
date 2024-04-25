@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "smtpd.h"
 #include "log.h"
@@ -28,7 +29,8 @@
 #define PROTOCOL_VERSION	"0.1"
 
 struct table_proc_priv {
-	FILE		*fp;
+	FILE		*in;
+	FILE		*out;
 	char		*line;
 	size_t		 linesize;
 
@@ -62,19 +64,19 @@ table_proc_send(struct table *table, const char *type, int service,
 	struct timeval		 tv;
 
 	gettimeofday(&tv, NULL);
-	fprintf(priv->fp, "table|%s|%lld.%06ld|%s|%s",
+	fprintf(priv->out, "table|%s|%lld.%06ld|%s|%s",
 	    PROTOCOL_VERSION, (long long)tv.tv_sec, (long)tv.tv_usec,
 	    table->t_name, type);
 	if (service != -1) {
-		fprintf(priv->fp, "|%s|%s", table_service_name(service),
+		fprintf(priv->out, "|%s|%s", table_service_name(service),
 		    table_proc_nextid(table));
 		if (param)
-			fprintf(priv->fp, "|%s", param);
-		fputc('\n', priv->fp);
+			fprintf(priv->out, "|%s", param);
+		fputc('\n', priv->out);
 	} else
-		fprintf(priv->fp, "|%s\n", table_proc_nextid(table));
+		fprintf(priv->out, "|%s\n", table_proc_nextid(table));
 
-	if (fflush(priv->fp) == EOF)
+	if (fflush(priv->out) == EOF)
 		fatal("table-proc: fflush");
 }
 
@@ -86,7 +88,7 @@ table_proc_recv(struct table *table, const char *type)
 	ssize_t			 linelen;
 	size_t			 len;
 
-	if ((linelen = getline(&priv->line, &priv->linesize, priv->fp)) == -1)
+	if ((linelen = getline(&priv->line, &priv->linesize, priv->in)) == -1)
 		fatal("table-proc: getline");
 	if (priv->line[linelen - 1] == '\n')
 		priv->line[--linelen] = '\0';
@@ -126,24 +128,30 @@ table_proc_open(struct table *table)
 	const char		*s;
 	ssize_t			 len;
 	int			 service, services = 0;
-	int			 fd;
+	int			 fd, fdd;
 
 	priv = xcalloc(1, sizeof(*priv));
 
 	fd = fork_proc_backend("table", table->t_config, table->t_name, 1);
 	if (fd == -1)
 		fatalx("table-proc: exiting");
-	if ((priv->fp = fdopen(fd, "r+")) == NULL)
+	if ((fdd = dup(fd)) == -1) {
+		log_warnx("warn: table-proc: dup");
+		fatalx("table-proc: exiting");
+	}
+	if ((priv->in = fdopen(fd, "r")) == NULL)
+		fatalx("table-proc: fdopen");
+	if ((priv->out = fdopen(fd, "w")) == NULL)
 		fatalx("table-proc: fdopen");
 
-	fprintf(priv->fp, "config|smtpd-version|"SMTPD_VERSION"\n");
-	fprintf(priv->fp, "config|protocol|"PROTOCOL_VERSION"\n");
-	fprintf(priv->fp, "config|tablename|%s\n", table->t_name);
-	fprintf(priv->fp, "config|ready\n");
-	if (fflush(priv->fp) == EOF)
+	fprintf(priv->out, "config|smtpd-version|"SMTPD_VERSION"\n");
+	fprintf(priv->out, "config|protocol|"PROTOCOL_VERSION"\n");
+	fprintf(priv->out, "config|tablename|%s\n", table->t_name);
+	fprintf(priv->out, "config|ready\n");
+	if (fflush(priv->out) == EOF)
 		fatalx("table-proc: fflush");
 
-	while ((len = getline(&priv->line, &priv->linesize, priv->fp)) != -1) {
+	while ((len = getline(&priv->line, &priv->linesize, priv->in)) != -1) {
 		if (priv->line[len - 1] == '\n')
 			priv->line[--len] = '\0';
 
@@ -160,7 +168,7 @@ table_proc_open(struct table *table)
 		services |= service;
 	}
 
-	if (ferror(priv->fp))
+	if (ferror(priv->in))
 		fatalx("table-proc: getline");
 
 	if (services == 0)
@@ -192,7 +200,9 @@ table_proc_close(struct table *table)
 {
 	struct table_proc_priv	*priv = table->t_handle;
 
-	if (fclose(priv->fp) == EOF)
+	if (fclose(priv->in) == EOF)
+		fatal("table-proc: fclose");
+	if (fclose(priv->out) == EOF)
 		fatal("table-proc: fclose");
 	free(priv->line);
 	free(priv);
