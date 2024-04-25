@@ -95,27 +95,27 @@ table_service_from_name(const char *service)
 	if (!strcmp(service, "alias"))
 		return K_ALIAS;
 	if (!strcmp(service, "domain"))
-	    	return K_DOMAIN;
+		return K_DOMAIN;
 	if (!strcmp(service, "credentials"))
-	    	return K_CREDENTIALS;
+		return K_CREDENTIALS;
 	if (!strcmp(service, "netaddr"))
-	    	return K_NETADDR;
+		return K_NETADDR;
 	if (!strcmp(service, "userinfo"))
-	    	return K_USERINFO;
+		return K_USERINFO;
 	if (!strcmp(service, "source"))
-	    	return K_SOURCE;
+		return K_SOURCE;
 	if (!strcmp(service, "mailaddr"))
-	    	return K_MAILADDR;
+		return K_MAILADDR;
 	if (!strcmp(service, "addrname"))
-	    	return K_ADDRNAME;
+		return K_ADDRNAME;
 	if (!strcmp(service, "mailaddrmap"))
-	    	return K_MAILADDRMAP;
+		return K_MAILADDRMAP;
 	if (!strcmp(service, "relayhost"))
-	    	return K_RELAYHOST;
+		return K_RELAYHOST;
 	if (!strcmp(service, "string"))
-	    	return K_STRING;
+		return K_STRING;
 	if (!strcmp(service, "regex"))
-	    	return K_REGEX;
+		return K_REGEX;
 	return (-1);
 }
 
