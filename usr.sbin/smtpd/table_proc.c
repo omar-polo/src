@@ -28,11 +28,10 @@
 #define PROTOCOL_VERSION	"0.1"
 
 struct table_proc_priv {
-	pid_t		 pid;
-	char		 lastid[32];
 	FILE		*fp;
 	char		*line;
 	size_t		 linesize;
+	char		 lastid[16];
 };
 
 static char *
@@ -118,6 +117,7 @@ static int
 table_proc_open(struct table *table)
 {
 	struct table_proc_priv	*priv;
+	const char		*s;
 	ssize_t			 len;
 	int			 service, services = 0;
 	int			 fd;
@@ -144,11 +144,12 @@ table_proc_open(struct table *table)
 		if (strncmp(priv->line, "register|", 9) != 0)
 			fatalx("table-proc: invalid handshake reply");
 
-		service = table_service_from_name(priv->line + 9);
-		if (service == -1 || service == K_NONE) {
-			fatalx("table-proc: unknown service %s",
-			    priv->line + 9);
-		}
+		s = priv->line + 9;
+		if (!strcmp(s, "ready"))
+			break;
+		service = table_service_from_name(s);
+		if (service == -1 || service == K_NONE)
+			fatalx("table-proc: unknown service %s", s);
 
 		services |= service;
 	}
@@ -171,7 +172,6 @@ table_proc_update(struct table *table)
 
 	table_proc_send(table, "update", -1, NULL);
 	r = table_proc_recv(table, "update-result");
-
 	if (!strcmp(r, "ok"))
 		return (1);
 	if (!strcmp(r, "error"))
