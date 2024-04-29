@@ -76,7 +76,9 @@ SRCS+=		scheduler_proc.c
 
 SRCS+=		stat_ramstat.c
 
-MAN=		sendmail.8 smtpd.8 smtpd-filters.7 smtpd.conf.5 table.5
+MAN=		sendmail.8 smtpd.8 smtpd-filters.7 smtpd-tables.7
+MAN+=		smtpd.conf.5 table.5
+
 BINDIR=		/usr/sbin
 
 LDADD+=		-levent -lutil -ltls -lssl -lcrypto -lz
