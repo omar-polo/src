@@ -140,7 +140,7 @@ table_proc_open(struct table *table)
 	}
 	if ((priv->in = fdopen(fd, "r")) == NULL)
 		fatalx("table-proc: fdopen");
-	if ((priv->out = fdopen(fd, "w")) == NULL)
+	if ((priv->out = fdopen(fdd, "w")) == NULL)
 		fatalx("table-proc: fdopen");
 
 	fprintf(priv->out, "config|smtpd-version|"SMTPD_VERSION"\n");
