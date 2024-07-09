@@ -137,10 +137,12 @@ main(int argc, char **argv)
 		extern void grep_init(void);
 		extern void cmode_init(void);
 		extern void dired_init(void);
+		extern void epmode_init(void);
 
 		dired_init();
 		grep_init();
 		cmode_init();
+		epmode_init();
 	}
 
 	if (init_fcn_name &&
