@@ -473,9 +473,10 @@ shellcmdoutput(char* const cmd, char* const text, int len,
     struct buffer *bp)
 {
 	struct mgwin *wp;
+	struct line *tlp;
 	char	*argv[] = {NULL, "-c", cmd, NULL};
 	char	*shellp;
-	int	 ret, special = 0;
+	int	 tbo, ret, special = 0;
 
 	if (bp == NULL) {
 		special = 1;
@@ -495,6 +496,9 @@ shellcmdoutput(char* const cmd, char* const text, int len,
 		ewprintf("Buffer is read-only");
 		return (FALSE);
 	}
+
+	tlp = curwp->w_dotp;			/* save current position */
+	tbo = curwp->w_doto;
 
 	if ((shellp = getenv("SHELL")) == NULL)
 		shellp = _PATH_BSHELL;
@@ -516,6 +520,9 @@ shellcmdoutput(char* const cmd, char* const text, int len,
 	if (special) {
 		bp->b_flag |= BFREADONLY;	/* restore read-only */
 		gotobob(0, 0);
+	} else {
+		curwp->w_dotp = tlp;		/* return to old position */
+		curwp->w_doto = tbo;
 	}
 	return (ret);
 }
