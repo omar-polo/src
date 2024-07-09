@@ -79,6 +79,8 @@ int	realscreenheight;		/* the real screen height */
 int	uflag;				/* Are we in -u mode? */
 sigset_t intset;			/* Signal set that is just SIGINT */
 
+int	multibyte;			/* Add MIME headers */
+
 /*
  * The pointers for the string allocation routines,
  * there are NSPACE independent areas.
@@ -136,7 +138,7 @@ main(int argc, char **argv)
 	smopts = NULL;
 	fromaddr = NULL;
 	subject = NULL;
-	while ((i = getopt(argc, argv, "EINb:c:dfinr:s:u:v")) != -1) {
+	while ((i = getopt(argc, argv, "EINb:c:dfimnr:s:u:v")) != -1) {
 		switch (i) {
 		case 'u':
 			/*
@@ -170,6 +172,9 @@ main(int argc, char **argv)
 			 * non terminal
 			 */
 			subject = optarg;
+			break;
+		case 'm':
+			multibyte = 1;
 			break;
 		case 'f':
 			/*
@@ -336,8 +341,7 @@ setscreensize(void)
 __dead void
 usage(void)
 {
-
-	fprintf(stderr, "usage: %s [-dEIinv] [-b list] [-c list] "
+	fprintf(stderr, "usage: %s [-dEIimnv] [-b list] [-c list] "
 	    "[-r from-addr] [-s subject] to-addr ...\n", __progname);
 	fprintf(stderr, "       %s [-dEIiNnv] -f [file]\n", __progname);
 	fprintf(stderr, "       %s [-dEIiNnv] [-u user]\n", __progname);
