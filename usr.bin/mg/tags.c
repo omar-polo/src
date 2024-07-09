@@ -13,6 +13,7 @@
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,7 +25,7 @@
 
 struct ctag;
 
-static int               addctag(char *);
+static int               addctag(const char *, char *);
 static int               atbow(void);
 void                     closetags(void);
 static int               ctagcmp(struct ctag *, struct ctag *);
@@ -35,6 +36,8 @@ static int               searchpat(char *);
 static struct ctag       *searchtag(char *);
 static char              *strip(char *, size_t);
 static void              unloadtags(void);
+
+size_t xdirname(char *, const char *, size_t);
 
 #define DEFAULTFN "tags"
 
@@ -147,7 +150,7 @@ unloadtags(void)
 	for (var = RB_MIN(tagtree, &tags); var != NULL; var = nxt) {
 		nxt = RB_NEXT(tagtree, &tags, var);
 		RB_REMOVE(tagtree, &tags, var);
-		/* line parsed with fparseln needs to be freed */
+		free(var->fname);
 		free(var->tag);
 		free(var);
 	}
@@ -259,8 +262,10 @@ int
 loadtags(const char *fn)
 {
 	struct stat sb;
-	char *l;
+	char dir[PATH_MAX], *l;
 	FILE *fd;
+
+	xdirname(dir, fn, sizeof(dir));
 
 	if ((fd = fopen(fn, "r")) == NULL) {
 		dobeep();
@@ -281,7 +286,7 @@ loadtags(const char *fn)
 	}
 	while ((l = fparseln(fd, NULL, NULL, "\\\\\0",
 	    FPARSELN_UNESCCONT | FPARSELN_UNESCREST)) != NULL) {
-		if (addctag(l) == FALSE) {
+		if (addctag(dir, l) == FALSE) {
 			fclose(fd);
 			return (FALSE);
 		}
@@ -334,13 +339,16 @@ strip(char *s, size_t len)
 /*
  * tags line is of the format "<tag>\t<filename>\t<pattern>". Split them
  * by replacing '\t' with '\0'. This wouldn't alter the size of malloc'ed
- * l, and can be freed during cleanup.
+ * l, and can be freed during cleanup.  Except for the path, which has
+ * to be made absolute.
  */
 int
-addctag(char *s)
+addctag(const char *wd, char *s)
 {
+	char path[PATH_MAX];
 	struct ctag *t = NULL;
-	char *l, *c;
+	char *l, *c, *p;
+	int r;
 
 	if ((t = malloc(sizeof(struct ctag))) == NULL) {
 		dobeep();
@@ -367,7 +375,18 @@ addctag(char *s)
 		*c = '\0';
 
 	t->pat = strip(l, strlen(l));
+
+	/* make the path absolute */
+	r = snprintf(path, sizeof(path), "%s/%s", wd, t->fname);
+	if (r < 0 || r >= sizeof(path))
+		goto cleanup;
+	if ((p = adjustname(path)) == NULL)
+		goto cleanup;
+	if ((t->fname = strdup(p)) == NULL)
+		goto cleanup;
+
 	if (RB_INSERT(tagtree, &tags, t) != NULL) {
+		free(t->fname);
 		free(t);
 		free(s);
 	}
