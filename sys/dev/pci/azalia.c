@@ -279,6 +279,9 @@ int	azalia_suspend(azalia_t *);
 int	azalia_resume(azalia_t *);
 int	azalia_resume_codec(codec_t *);
 
+/* sysctl */
+int audio_hdmi_enable = 0;
+
 /* variables */
 const struct cfattach azalia_ca = {
 	sizeof(azalia_t), azalia_pci_match, azalia_pci_attach,
@@ -942,14 +945,15 @@ azalia_init_codecs(azalia_t *az)
 	}
 
 	/* Use the first codec capable of analog I/O.  If there are none,
-	 * use the first codec capable of digital I/O.  Skip HDMI codecs.
+	 * use the first codec capable of digital I/O.
 	 */
 	c = -1;
 	for (i = 0; i < az->ncodecs; i++) {
 		codec = &az->codecs[i];
-		if ((codec->audiofunc < 0) ||
-		    (codec->codec_type == AZ_CODEC_TYPE_HDMI))
-			continue;
+		if(audio_hdmi_enable)
+			if ((codec->audiofunc < 0) ||
+			    (codec->codec_type == AZ_CODEC_TYPE_HDMI))
+					continue;
 		if (codec->codec_type == AZ_CODEC_TYPE_DIGITAL) {
 			if (c < 0)
 				c = i;

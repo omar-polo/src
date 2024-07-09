@@ -322,11 +322,13 @@ struct ctlname {
  * KERN_AUDIO
  */
 #define KERN_AUDIO_RECORD	1
-#define KERN_AUDIO_MAXID	2
+#define KERN_AUDIO_HDMI		2
+#define KERN_AUDIO_MAXID	3
 
 #define CTL_KERN_AUDIO_NAMES { \
 	{ 0, 0 }, \
 	{ "record", CTLTYPE_INT }, \
+	{ "hdmi", CTLTYPE_INT }, \
 }
 
 /*
