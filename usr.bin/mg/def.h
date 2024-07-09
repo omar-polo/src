@@ -20,7 +20,7 @@ typedef int	(*PF)(int, int);	/* generally useful type */
 #define NFILEN	1024		/* Length, file name.		 */
 #define NBUFN	NFILEN		/* Length, buffer name.		 */
 #define NLINE	256		/* Length, line.		 */
-#define PBMODES 4		/* modes per buffer		 */
+#define PBMODES 8		/* modes per buffer		 */
 #define NPAT	80		/* Length, pattern.		 */
 #define HUGE	1000		/* A rather large number.	 */
 #define NSRCH	128		/* Undoable search commands.	 */
@@ -721,6 +721,14 @@ int		 cc_char(int, int);
 int		 cc_tab(int, int);
 int		 cc_indent(int, int);
 int		 cc_lfindent(int, int);
+
+/* electric.c X */
+int		 epmode(int, int);
+int		 epinsert(int, int);
+int		 epskip(int, int);
+int		 epbdel(int, int);
+int		 epfdel(int, int);
+int		 epnewline(int, int);
 
 /* grep.c X */
 int		 next_error(int, int);
