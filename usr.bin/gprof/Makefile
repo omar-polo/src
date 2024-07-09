@@ -6,7 +6,7 @@ TARGET_MACHINE_ARCH?=	${MACHINE_ARCH}
 TARGET_MACHINE_CPU?=	${MACHINE_CPU}
 
 PROG=	gprof
-SRCS=	gprof.c arcs.c dfn.c elf.c lookup.c ${TARGET_MACHINE_CPU}.c \
+SRCS=	gprof.c arcs.c dfn.c elf.c extract.c lookup.c ${TARGET_MACHINE_CPU}.c \
 	hertz.c printgprof.c printlist.c
 CFLAGS+= -I. -DMD_INCLUDE=\"${TARGET_MACHINE_CPU}.h\"
 

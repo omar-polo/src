@@ -263,6 +263,7 @@ void		gprofheader(void);
 void		gprofline(nltype *);
 int		hertz(void);
 void		inheritflags(nltype *);
+FILE *		ktrace_extract(FILE *, const char *);
 unsigned long	max(unsigned long, unsigned long);
 int		membercmp(nltype *, nltype *);
 unsigned long	min(unsigned long, unsigned long);
