@@ -41,7 +41,7 @@ struct dns_session {
 	uint64_t		 reqid;
 	int			 type;
 	char			 name[HOST_NAME_MAX+1];
-	size_t			 mxfound;
+	int			 mxfound;
 	int			 error;
 	int			 refcount;
 };
@@ -196,7 +196,7 @@ dns_dispatch_host(struct asr_result *ar, void *arg)
 	s = lookup->session;
 
 	for (ai = ar->ar_addrinfo; ai; ai = ai->ai_next) {
-		s->mxfound++;
+		s->mxfound = 1;
 		m_create(s->p, IMSG_MTA_DNS_HOST, 0, 0, -1);
 		m_add_id(s->p, s->reqid);
 		m_add_string(s->p, lookup->host);
@@ -231,8 +231,7 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 	struct dns_query	 q;
 	struct dns_rr		 rr;
 	char			 buf[512];
-	size_t			 found;
-	int			 nullmx = 0;
+	int			 found = 0, nullmx = 0;
 
 	if (ar->ar_h_errno && ar->ar_h_errno != NO_DATA &&
 	    ar->ar_h_errno != NOTIMP) {
@@ -254,7 +253,6 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 	unpack_header(&pack, &h);
 	unpack_query(&pack, &q);
 
-	found = 0;
 	for (; h.ancount; h.ancount--) {
 		unpack_rr(&pack, &rr);
 		if (rr.rr_type != T_MX)
@@ -270,11 +268,11 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 		}
 
 		dns_lookup_host(s, buf, rr.rr.mx.preference);
-		found++;
+		found = 1;
 	}
 	free(ar->ar_data);
 
-	if (nullmx && found == 0) {
+	if (nullmx && !found) {
 		m_create(s->p, IMSG_MTA_DNS_HOST_END, 0, 0, -1);
 		m_add_id(s->p, s->reqid);
 		m_add_int(s->p, DNS_NULLMX);
@@ -284,7 +282,7 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 	}
 
 	/* fallback to host if no MX is found. */
-	if (found == 0)
+	if (!found)
 		dns_lookup_host(s, s->name, 0);
 }
 
