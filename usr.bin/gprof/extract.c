@@ -58,6 +58,8 @@ void gmon_append(FILE *, const char *, struct gmon_de *, const char *, char *);
 int ktrace_header(FILE *, struct ktr_header *);
 int ktrace_next(FILE *, const char *, struct ktr_header *, void **, size_t *);
 
+extern pid_t target_pid;
+
 FILE *
 ktrace_extract(FILE *kfp, const char *ktrace_path)
 {
@@ -117,6 +119,8 @@ ktrace_extract(FILE *kfp, const char *ktrace_path)
 
 		/* Only consider the first gmon.out record set. */
 		if (!have_pid) {
+			if (target_pid != -1 && header.ktr_pid != target_pid)
+				continue;
 			pid = header.ktr_pid;
 			have_pid = 1;
 		}

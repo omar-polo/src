@@ -75,6 +75,8 @@ bool    kflag;                          /* arcs to be deleted */
 bool    sflag;                          /* sum multiple gmon.out files */
 bool    zflag;                          /* zero time/called functions, too */
 
+pid_t target_pid = -1;
+
 int
 main(int argc, char *argv[])
 {
@@ -151,6 +153,9 @@ main(int argc, char *argv[])
 	    addlist( ktolist , *++argv );
 	    kflag = TRUE;
 	    break;
+    case 'p':
+        target_pid = atoi( *++argv );
+        break;
 	case 's':
 	    sflag = TRUE;
 	    break;
