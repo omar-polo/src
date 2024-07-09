@@ -795,6 +795,9 @@ fcgiflags	: SOCKET STRING {
 			free($2);
 			free($3);
 
+			if (!strcmp(param->name, "PATH_INFO"))
+				srv_conf->fcgi_path_info = param;
+
 			DPRINTF("[%s,%s,%d]: adding param \"%s\" value \"%s\"",
 			    srv_conf->location, srv_conf->name, srv_conf->id,
 			    param->name, param->value);

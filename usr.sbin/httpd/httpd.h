@@ -542,6 +542,7 @@ struct server_config {
 	uint8_t			 hsts_flags;
 
 	struct server_fcgiparams fcgiparams;
+	struct fcgi_param	*fcgi_path_info;
 	int			 fcgistrip;
 	char			 errdocroot[HTTPD_ERRDOCROOT_MAX];
 
