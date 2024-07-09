@@ -500,7 +500,7 @@ d_copy(int f, int n)
 	else if (bufp[0] == '\0')
 		return (FALSE);
 
-	topath = adjustname(toname, TRUE);
+	topath = adjustname(toname);
 	if (stat(topath, &statbuf) == 0) {
 		if (S_ISDIR(statbuf.st_mode)) {
 			ret = snprintf(toname, sizeof(toname), "%s/%s",
@@ -510,7 +510,7 @@ d_copy(int f, int n)
 				ewprintf("Directory name too long");
 				return (FALSE);
 			}
-			topath = adjustname(toname, TRUE);
+			topath = adjustname(toname);
 		}
 	}
 	if (topath == NULL)
@@ -559,7 +559,7 @@ d_rename(int f, int n)
 	else if (bufp[0] == '\0')
 		return (FALSE);
 
-	topath = adjustname(toname, TRUE);
+	topath = adjustname(toname);
 	if (stat(topath, &statbuf) == 0) {
 		if (S_ISDIR(statbuf.st_mode)) {
 			ret = snprintf(toname, sizeof(toname), "%s/%s",
@@ -569,7 +569,7 @@ d_rename(int f, int n)
 				ewprintf("Directory name too long");
 				return (FALSE);
 			}
-			topath = adjustname(toname, TRUE);
+			topath = adjustname(toname);
 		}
 	}
 	if (topath == NULL)
@@ -932,7 +932,7 @@ dired_(char *dname)
 	int		 i;
 	size_t		 len;
 
-	if ((dname = adjustname(dname, TRUE)) == NULL) {
+	if ((dname = adjustname(dname)) == NULL) {
 		dobeep();
 		ewprintf("Bad directory name");
 		return (NULL);
@@ -1141,7 +1141,7 @@ dired_jump(int f, int n)
 	if (ret != TRUE)
 		return ret;
 
-	fname = adjustname(fname, TRUE);
+	fname = adjustname(fname);
 	if (fname != NULL)
 		gotofile(fname);
 
@@ -1165,7 +1165,7 @@ d_gotofile(int f, int n)
 	else if (fnp[0] == '\0')
 		return (FALSE);
 
-	fpth = adjustname(fpath, TRUE);		/* Removes last '/' if dir...  */
+	fpth = adjustname(fpath);		/* Removes last '/' if dir...  */
 	if (fpth == NULL || strlen(fpth) == lenfpath - 1) { /* ...hence -1.    */
 		ewprintf("No file to find");	/* Current directory given so  */
 		return (TRUE);			/* return at present location. */

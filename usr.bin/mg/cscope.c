@@ -338,7 +338,7 @@ jumptomatch(void)
 
 	if (curmatch == NULL || currecord == NULL)
 		return (FALSE);
-	adjf = adjustname(currecord->filename, TRUE);
+	adjf = adjustname(currecord->filename);
 	if (adjf == NULL)
 		return (FALSE);
 	if ((bp = findbuffer(adjf)) == NULL)

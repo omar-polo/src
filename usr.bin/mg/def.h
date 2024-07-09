@@ -485,7 +485,7 @@ int		 ffclose(FILE *, struct buffer *);
 int		 ffputbuf(FILE *, struct buffer *, int);
 int		 ffgetline(FILE *, char *, int, int *);
 int		 fbackupfile(const char *);
-char		*adjustname(const char *, int);
+char		*adjustname(const char *);
 FILE		*startupfile(char *, char *, char *, size_t);
 int		 copy(char *, char *);
 struct list	*make_file_list(char *);

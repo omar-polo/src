@@ -206,7 +206,7 @@ main(int argc, char **argv)
 			startrow = lval;
 		} else {
 notnum:
-			cp = adjustname(argv[i], FALSE);
+			cp = adjustname(argv[i]);
 			if (cp != NULL) {
 				if (nfiles == 1)
 					splitwind(0, 1);
