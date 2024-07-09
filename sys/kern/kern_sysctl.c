@@ -128,6 +128,7 @@ extern fixpt_t ccpu;
 extern long numvnodes;
 extern int allowdt;
 extern int audio_record_enable;
+extern int audio_hdmi_enable;
 extern int video_record_enable;
 extern int autoconf_serial;
 
@@ -2583,13 +2584,17 @@ int
 sysctl_audio(int *name, u_int namelen, void *oldp, size_t *oldlenp,
     void *newp, size_t newlen)
 {
+	int error = 0;
 	if (namelen != 1)
 		return (ENOTDIR);
 
-	if (name[0] != KERN_AUDIO_RECORD)
-		return (ENOENT);
+	if (name[0] == KERN_AUDIO_RECORD)
+		error = sysctl_int(oldp, oldlenp, newp, newlen, &audio_record_enable);
 
-	return (sysctl_int(oldp, oldlenp, newp, newlen, &audio_record_enable));
+	if (name[0] == KERN_AUDIO_HDMI)
+		error = sysctl_int(oldp, oldlenp, newp, newlen, &audio_hdmi_enable);
+
+	return (error);
 }
 #endif
 
