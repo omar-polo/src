@@ -258,3 +258,4 @@ int	 writeback(FILE *);
 extern char *__progname;
 extern char *tmpdir;
 extern const struct cmd *com; /* command we are running */
+extern int multibyte; /* Add MIME headers */

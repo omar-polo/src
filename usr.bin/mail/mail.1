@@ -40,7 +40,7 @@
 .Sh SYNOPSIS
 .Nm mail
 .Bk -words
-.Op Fl dEIinv
+.Op Fl dEIimnv
 .Op Fl b Ar list
 .Op Fl c Ar list
 .Op Fl r Ar from-addr
@@ -103,6 +103,9 @@ This is
 particularly useful when using
 .Nm mail
 on noisy phone lines.
+.It Fl m
+Send an UTF-8 encoded plain text message.
+The input text is supposed to already be UTF-8 encoded.
 .It Fl N
 Inhibits initial display of message headers
 when reading mail or editing a mail folder.
@@ -159,6 +162,11 @@ your message, followed
 by a control-D
 .Pq Sq ^D
 at the beginning of a line.
+By default the input text is expected to only contain 7-bit
+.Xr ascii 7
+characters unless
+.Fl m
+is used.
 The section below,
 .Sx Replying to or originating mail ,
 describes some features of

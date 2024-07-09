@@ -514,22 +514,27 @@ infix(struct header *hp, FILE *fi)
 int
 puthead(struct header *hp, FILE *fo, int w)
 {
-	int gotcha;
 	char *from;
 
-	gotcha = 0;
 	from = hp->h_from ? hp->h_from : value("from");
 	if (from != NULL)
-		fprintf(fo, "From: %s\n", from), gotcha++;
+		fprintf(fo, "From: %s\n", from);
 	if (hp->h_to != NULL && w & GTO)
-		fmt("To:", hp->h_to, fo, w&GCOMMA), gotcha++;
+		fmt("To:", hp->h_to, fo, w&GCOMMA);
 	if (hp->h_subject != NULL && w & GSUBJECT)
-		fprintf(fo, "Subject: %s\n", hp->h_subject), gotcha++;
+		fprintf(fo, "Subject: %s\n", hp->h_subject);
 	if (hp->h_cc != NULL && w & GCC)
-		fmt("Cc:", hp->h_cc, fo, w&GCOMMA), gotcha++;
+		fmt("Cc:", hp->h_cc, fo, w&GCOMMA);
 	if (hp->h_bcc != NULL && w & GBCC)
-		fmt("Bcc:", hp->h_bcc, fo, w&GCOMMA), gotcha++;
-	if (gotcha && w & GNL)
+		fmt("Bcc:", hp->h_bcc, fo, w&GCOMMA);
+	fprintf(fo, "MIME-Version: 1.0\n");
+	if (multibyte)
+		fprintf(fo, "Content-Transfer-Encoding: 8bit\n"
+		    "Content-Type: text/plain; charset=utf-8\n");
+	else
+		fprintf(fo, "Content-Transfer-Encoding: 7bit\n"
+		    "Content-Type: text/plain; charset=us-ascii\n");
+	if (w & GNL)
 		(void)putc('\n', fo);
 	return(0);
 }
