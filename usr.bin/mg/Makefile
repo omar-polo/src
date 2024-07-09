@@ -22,7 +22,8 @@ SRCS=	autoexec.c basic.c bell.c buffer.c cinfo.c dir.c display.c \
 #
 # More or less standalone extensions.
 #
-SRCS+=	cmode.c cscope.c dired.c grep.c interpreter.c tags.c electric.c
+SRCS+=	cmode.c cscope.c dired.c grep.c interpreter.c tags.c electric.c \
+	theo.c
 
 #
 # -DMGLOG source file.
