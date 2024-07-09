@@ -360,13 +360,8 @@ static struct imsg * current;
 static void
 m_error(const char *error)
 {
-	char	buf[512];
-
-	(void)snprintf(buf, sizeof buf, "%s: %s: %s",
-	    proc_name(smtpd_process),
-	    imsg_to_str(current->hdr.type),
-	    error);
-	fatalx("%s", buf);
+	fatalx("%s: %s: %s", proc_name(smtpd_process),
+	    imsg_to_str(current->hdr.type), error);
 }
 
 void
