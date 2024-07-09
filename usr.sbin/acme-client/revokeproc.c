@@ -86,8 +86,6 @@ revokeproc(int fd, const char *certfile, int force,
 
 	/* File-system and sandbox jailing. */
 
-	ERR_load_crypto_strings();
-
 	if (pledge("stdio", NULL) == -1) {
 		warn("pledge");
 		goto out;
@@ -302,6 +300,5 @@ out:
 	free(found);
 	free(der64);
 	ERR_print_errors_fp(stderr);
-	ERR_free_strings();
 	return rc;
 }

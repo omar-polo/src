@@ -474,8 +474,6 @@ acctproc(int netsock, const char *acctkey, enum keytype keytype)
 
 	/* File-system, user, and sandbox jailing. */
 
-	ERR_load_crypto_strings();
-
 	if (pledge("stdio", NULL) == -1) {
 		warn("pledge");
 		goto out;
@@ -555,6 +553,5 @@ out:
 		fclose(f);
 	EVP_PKEY_free(pkey);
 	ERR_print_errors_fp(stderr);
-	ERR_free_strings();
 	return rc;
 }
