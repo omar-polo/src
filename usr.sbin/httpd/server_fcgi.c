@@ -178,25 +178,41 @@ server_fcgi(struct httpd *env, struct client *clt)
 		goto fail;
 	}
 
-	scriptlen = path_info(script);
-	/*
-	 * no part of root should show up in PATH_INFO.
-	 * therefore scriptlen should be >= strlen(root)
-	 */
-	if (scriptlen < strlen(srv_conf->root))
-		scriptlen = strlen(srv_conf->root);
-	if ((int)scriptlen < pathlen) {
-		if (fcgi_add_param(&param, "PATH_INFO",
-		    script + scriptlen, clt) == -1) {
-			errstr = "failed to encode param";
-			goto fail;
+	if (srv_conf->fcgi_path_info != NULL) {
+		str = srv_conf->fcgi_path_info->value;
+		l = strlen(str);
+		while (l > 0 && str[l - 1] == '/')
+			l--;
+		if (!strncmp(script, str, l) &&
+		    (path[l] == '/' || path[l] == '\0')) {
+			if (fcgi_add_param(&param, "PATH_INFO",
+			    ))
 		}
-		script[scriptlen] = '\0';
 	} else {
-		/* RFC 3875 mandates that PATH_INFO is empty if not set */
-		if (fcgi_add_param(&param, "PATH_INFO", "", clt) == -1) {
-			errstr = "failed to encode param";
-			goto fail;
+		scriptlen = path_info(script);
+		/*
+		 * no part of root should show up in PATH_INFO.
+		 * therefore scriptlen should be >= strlen(root)
+		 */
+		if (scriptlen < strlen(srv_conf->root))
+			scriptlen = strlen(srv_conf->root);
+		if ((int)scriptlen < pathlen) {
+			if (fcgi_add_param(&param, "PATH_INFO",
+			    script + scriptlen, clt) == -1) {
+				errstr = "failed to encode param";
+				goto fail;
+			}
+			script[scriptlen] = '\0';
+		} else {
+			/*
+			 * RFC 3875 mandates that PATH_INFO is empty if
+			 * not set
+			 */
+			if (fcgi_add_param(&param, "PATH_INFO", "", clt)
+			    == -1) {
+				errstr = "failed to encode param";
+				goto fail;
+			}
 		}
 	}
 
