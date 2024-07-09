@@ -28,16 +28,22 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/time.h>
+#include <sys/types.h>
 #include <sys/gmon.h>
+#include <sys/ktrace.h>
 #include <sys/mman.h>
 #include <sys/sysctl.h>
+#include <sys/time.h>
 
+#include <assert.h>
+#include <err.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <unistd.h>
 
 struct gmonparam _gmonparam = { GMON_PROF_OFF };
@@ -47,6 +53,7 @@ static int	s_scale;
 #define		SCALE_1_TO_1	0x10000L
 
 #define ERR(s) write(STDERR_FILENO, s, sizeof(s))
+#define GMON_LABEL	"_openbsd_libc_gmon"
 
 PROTO_NORMAL(moncontrol);
 PROTO_DEPRECATED(monstartup);
@@ -136,24 +143,17 @@ __strong_alias(_monstartup,monstartup);
 void
 _mcleanup(void)
 {
-	int fd;
-	int fromindex;
+	char ubuf[KTR_USER_MAXLEN + 1];	/* +1 for NUL, for snprintf(3) */
+	int error, fromindex, len;
 	int endfrom;
-	u_long frompc;
+	u_long frompc, i, j, limit;
 	int toindex;
 	struct rawarc rawarc;
 	struct gmonparam *p = &_gmonparam;
 	struct gmonhdr gmonhdr, *hdr;
 	struct clockinfo clockinfo;
 	const int mib[2] = { CTL_KERN, KERN_CLOCKRATE };
-	size_t size;
-	char *profdir;
-	char *proffile;
-	char  buf[PATH_MAX];
-#ifdef DEBUG
-	int log, len;
-	char dbuf[200];
-#endif
+	size_t off, sample_limit, sample_total, size;
 
 	if (p->state == GMON_PROF_ERROR)
 		ERR("_mcleanup: tos overflow\n");
@@ -171,66 +171,7 @@ _mcleanup(void)
 
 	moncontrol(0);
 
-	if (issetugid() == 0 && (profdir = getenv("PROFDIR")) != NULL) {
-		char *s, *t, *limit;
-		pid_t pid;
-		long divisor;
-
-		/* If PROFDIR contains a null value, no profiling
-		   output is produced */
-		if (*profdir == '\0') {
-			return;
-		}
-
-		limit = buf + sizeof buf - 1 - 10 - 1 -
-		    strlen(__progname) - 1;
-		t = buf;
-		s = profdir;
-		while((*t = *s) != '\0' && t < limit) {
-			t++;
-			s++;
-		}
-		*t++ = '/';
-
-		/*
-		 * Copy and convert pid from a pid_t to a string.  For
-		 * best performance, divisor should be initialized to
-		 * the largest power of 10 less than PID_MAX.
-		 */
-		pid = getpid();
-		divisor=10000;
-		while (divisor > pid) divisor /= 10;	/* skip leading zeros */
-		do {
-			*t++ = (pid/divisor) + '0';
-			pid %= divisor;
-		} while (divisor /= 10);
-		*t++ = '.';
-
-		s = __progname;
-		while ((*t++ = *s++) != '\0')
-			;
-
-		proffile = buf;
-	} else {
-		proffile = "gmon.out";
-	}
-
-	fd = open(proffile , O_CREAT|O_TRUNC|O_WRONLY, 0664);
-	if (fd == -1) {
-		perror( proffile );
-		return;
-	}
-#ifdef DEBUG
-	log = open("gmon.log", O_CREAT|O_TRUNC|O_WRONLY, 0664);
-	if (log == -1) {
-		perror("mcount: gmon.log");
-		close(fd);
-		return;
-	}
-	snprintf(dbuf, sizeof dbuf, "[mcleanup1] kcount 0x%x ssiz %d\n",
-	    p->kcount, p->kcountsize);
-	write(log, dbuf, strlen(dbuf));
-#endif
+	/* First, serialize the gmon header. */
 	hdr = (struct gmonhdr *)&gmonhdr;
 	bzero(hdr, sizeof(*hdr));
 	hdr->lpc = p->lowpc;
@@ -238,8 +179,48 @@ _mcleanup(void)
 	hdr->ncnt = p->kcountsize + sizeof(gmonhdr);
 	hdr->version = GMONVERSION;
 	hdr->profrate = clockinfo.profhz;
-	write(fd, (char *)hdr, sizeof *hdr);
-	write(fd, p->kcount, p->kcountsize);
+	len = snprintf(ubuf, sizeof ubuf, "gmonhdr %lx %lx %x %x %x",
+	    hdr->lpc, hdr->hpc, hdr->ncnt, hdr->version, hdr->profrate);
+	if (len == -1 || len >= sizeof ubuf)
+		goto out;
+	if (utrace(GMON_LABEL, ubuf, len) == -1)
+		goto out;
+
+	/*
+	 * Next, serialize the kcount sample array.  Each trace is prefixed
+	 * with the string "kcount" (6).  Each sample is prefixed with a
+	 * delimiting space (1) and serialized as a 4-digit hexadecimal
+	 * value (4).  The buffer, ubuf, is KTR_USER_MAXLEN + 1 bytes, but
+	 * each trace is limited to KTR_USER_MAXLEN bytes.  Given these
+	 * constraints, we can fit at most:
+	 *
+	 *	  floor((KTR_USER_MAXLEN - 6) / (4 + 1)
+	 *	= floor((KTR_USER_MAXLEN - 6) / 5)
+	 *
+	 * samples per trace.
+	 */
+	assert(sizeof(*p->kcount) == 2);
+	sample_total = p->kcountsize / sizeof(*p->kcount);
+	sample_limit = (sizeof(ubuf) - 6) / 5;
+	for (i = 0; i < sample_total; i = j) {
+		off = strlcpy(ubuf, "kcount", sizeof ubuf);
+		assert(off == 6);
+		if (sample_total - i < sample_limit)
+			limit = sample_total;
+		else
+			limit = i + sample_limit;
+		for (j = i; j < limit; j++) {
+			len = snprintf(ubuf + off, sizeof(ubuf) - off,
+			    " %04hx", p->kcount[j]);
+			assert(len == 5);
+			off += len;
+			assert(off < sizeof ubuf);
+		}
+		if (utrace(GMON_LABEL, ubuf, off) == -1)
+			goto out;
+	}
+
+	/* Last, serialize the arcs.  One per trace. */
 	endfrom = p->fromssize / sizeof(*p->froms);
 	for (fromindex = 0; fromindex < endfrom; fromindex++) {
 		if (p->froms[fromindex] == 0)
@@ -249,20 +230,29 @@ _mcleanup(void)
 		frompc += fromindex * p->hashfraction * sizeof(*p->froms);
 		for (toindex = p->froms[fromindex]; toindex != 0;
 		     toindex = p->tos[toindex].link) {
-#ifdef DEBUG
-			(void) snprintf(dbuf, sizeof dbuf,
-			"[mcleanup2] frompc 0x%x selfpc 0x%x count %d\n" ,
-				frompc, p->tos[toindex].selfpc,
-				p->tos[toindex].count);
-			write(log, dbuf, strlen(dbuf));
-#endif
 			rawarc.raw_frompc = frompc;
 			rawarc.raw_selfpc = p->tos[toindex].selfpc;
 			rawarc.raw_count = p->tos[toindex].count;
-			write(fd, &rawarc, sizeof rawarc);
+			len = snprintf(ubuf, sizeof ubuf, "rawarc %lx %lx %lx",
+			    rawarc.raw_frompc, rawarc.raw_selfpc,
+			    rawarc.raw_count);
+			if (len == -1 || len >= sizeof ubuf)
+				goto out;
+			if (utrace(GMON_LABEL, ubuf, len) == -1)
+				goto out;
 		}
 	}
-	close(fd);
+
+	/*
+	 * Leave a footer so the reader knows they have the full dump.
+	 * This is a convenience for the reader: it is not a part of
+	 * the gmon binary.
+	 */
+	off = strlcpy(ubuf, "footer", sizeof ubuf);
+	assert(off == 6);
+	utrace(GMON_LABEL, ubuf, off);
+out:
+	/* nothing */;
 #ifdef notyet
 	if (p->kcount != NULL) {
 		munmap(p->kcount, p->kcountsize);
