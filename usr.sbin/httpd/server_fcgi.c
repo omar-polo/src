@@ -333,7 +333,7 @@ server_fcgi(struct httpd *env, struct client *clt)
 		goto fail;
 	}
 
-	if (fcgi_add_param(&param, "SERVER_NAME", srv_conf->name,
+	if (fcgi_add_param(&param, "SERVER_NAME", desc->http_host,
 	    clt) == -1) {
 		errstr = "failed to encode param";
 		goto fail;
