@@ -147,23 +147,29 @@ re_queryrepl(int f, int n)
 	ewprintf("Query replacing %s with %s:", re_pat, news);
 
 	/*
+	 * If dot on empty line, instruct re_forwsrch to not advance
+	 * line.
+	 */
+	if (curwp->w_doto == 0 && curwp->w_dotp->l_used == 0)
+		curwp->w_doto = -1;
+
+	/*
 	 * Search forward repeatedly, checking each time whether to insert
 	 * or not.  The "!" case makes the check always true, so it gets put
 	 * into a tighter loop for efficiency.
 	 */
 	while (re_forwsrch() == TRUE) {
+		plen = regex_match[0].rm_eo - regex_match[0].rm_so;
 retry:
 		update(CMODE);
 		switch (getkey(FALSE)) {
 		case ' ':
-			plen = regex_match[0].rm_eo - regex_match[0].rm_so;
 			if (re_doreplace((RSIZE)plen, news) == FALSE)
 				return (FALSE);
 			rcnt++;
 			break;
 
 		case '.':
-			plen = regex_match[0].rm_eo - regex_match[0].rm_so;
 			if (re_doreplace((RSIZE)plen, news) == FALSE)
 				return (FALSE);
 			rcnt++;
@@ -218,7 +224,10 @@ re_repl(int f, int n)
 		return (s);
 	if (eread("Replace %s with: ", news, NPAT,
 	    EFNUL | EFNEW | EFCR, re_pat) == NULL)
-                return (ABORT);
+		return (ABORT);
+	/* If dot on empty line, re_forwsrch() should not advance line */
+	if (curwp->w_doto == 0 && curwp->w_dotp->l_used == 0)
+		curwp->w_doto = -1;
 
 	while (re_forwsrch() == TRUE) {
 		plen = regex_match[0].rm_eo - regex_match[0].rm_so;
@@ -231,7 +240,7 @@ re_repl(int f, int n)
 	update(CMODE);
 	if (!inmacro)
 		ewprintf("(%d replacement(s) done)", rcnt);
-	
+
 	return(TRUE);
 }
 
@@ -339,17 +348,24 @@ re_forwsrch(void)
 	tbo = curwp->w_doto;
 	tdotline = curwp->w_dotline;
 
-	if (tbo == clp->l_used)
+	if (tbo == clp->l_used) {
 		/*
 		 * Don't start matching past end of line -- must move to
-		 * beginning of next line, unless line is empty or at
-		 * end of file.
+		 * beginning of next line, unless at end of file.
 		 */
-		if (clp != curbp->b_headp && llength(clp) != 0) {
+		if (clp != curbp->b_headp) {
 			clp = lforw(clp);
 			tdotline++;
 			tbo = 0;
 		}
+	} else if (tbo < 0) {
+		/*
+		 * Don't advance to the next line when dot on empty line;
+		 * reset tbo to correct value.
+		 */
+		tbo = 0;
+	}
+
 	/*
 	 * Note this loop does not process the last line, but this editor
 	 * always makes the last line empty so this is good.
