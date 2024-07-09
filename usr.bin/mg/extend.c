@@ -629,7 +629,7 @@ evalfile(int f, int n)
 		return (ABORT);
 	if (bufp[0] == '\0')
 		return (FALSE);
-	if ((bufp = adjustname(fname, TRUE)) == NULL)
+	if ((bufp = adjustname(fname)) == NULL)
 		return (FALSE);
 	ret = ffropen(&ffp, bufp, NULL);
 	if (ret == FIODIR)
