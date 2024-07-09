@@ -654,6 +654,9 @@ path_info(char *path)
 	struct stat	 st;
 	int		 ret;
 
+	if (!strncmp(path, "/htdocs/gotwebd/", 16))
+		return (16);
+
 	start = path;
 	end = start + strlen(path);
 
