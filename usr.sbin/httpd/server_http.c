@@ -23,6 +23,7 @@
 #include <sys/tree.h>
 #include <sys/stat.h>
 
+#include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -831,11 +832,49 @@ server_http_host(struct sockaddr_storage *ss, char *buf, size_t len)
 	return (buf);
 }
 
+static int
+valid_domain(char *name, const char **errstr)
+{
+	size_t i;
+	unsigned char c, last = '\0';
+
+	*errstr = NULL;
+
+	if (*name == '\0') {
+		*errstr = "empty domain name";
+		return 0;
+	}
+	if (!isalpha((unsigned char)name[0]) &&
+	    !isdigit((unsigned char)name[0])) {
+		*errstr = "domain name starts with an invalid character";
+		return 0;
+	}
+	for (i = 0; name[i] != '\0'; ++i) {
+		c = tolower((unsigned char)name[i]);
+		name[i] = c;
+		if (last == '.' && c == '.') {
+			*errstr = "domain name contains consecutive separators";
+			return 0;
+		}
+		if (c != '.' && c != '-' && !isalnum(c) &&
+		    c != '_') /* technically invalid, but common */ {
+			*errstr = "domain name contains invalid characters";
+			return 0;
+		}
+		last = c;
+	}
+	if (name[i - 1] == '.')
+		name[i - 1] = '\0';
+	return 1;
+}
+
 char *
 server_http_parsehost(char *host, char *buf, size_t len, int *portval)
 {
-	char		*start, *end, *port;
+	struct addrinfo	 hints, *ai;
+	char		*start, *end, *endbr, *port;
 	const char	*errstr = NULL;
+	int		 err;
 
 	if (strlcpy(buf, host, len) >= len) {
 		log_debug("%s: host name too long", __func__);
@@ -845,22 +884,45 @@ server_http_parsehost(char *host, char *buf, size_t len, int *portval)
 	start = buf;
 	end = port = NULL;
 
-	if (*start == '[' && (end = strchr(start, ']')) != NULL) {
-		/* Address enclosed in [] with port, eg. [2001:db8::1]:80 */
-		start++;
-		*end++ = '\0';
-		if ((port = strchr(end, ':')) == NULL || *port == '\0')
-			port = NULL;
-		else
-			port++;
-		memmove(buf, start, strlen(start) + 1);
-	} else if ((end = strchr(start, ':')) != NULL) {
-		/* Name or address with port, eg. www.example.com:80 */
-		*end++ = '\0';
-		port = end;
+	if (*start == '[' && (endbr = strchr(start, ']')) != NULL) {
+		/*
+	 	 * Address enclosed in [] with optional port.  Need to
+		 * temporarly strip the braces for getaddrinfo(), but
+		 * do preserve them for after the validation.
+		 */
+		*endbr = '\0';
+		end = endbr + 1;
+		if (*end == ':') {
+			*end++ = '\0';
+			port = end;
+		} else if (*end != '\0') {
+			log_debug("%s: gibberish after IPv6 address: %s",
+			    __func__, host);
+			return (NULL);
+		}
+
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_flags = AI_NUMERICHOST;
+		err = getaddrinfo(start + 1, NULL, &hints, &ai);
+		if (err != 0) {
+			log_debug("%s: %s: %s", __func__, gai_strerror(err),
+			    host);
+			return (NULL);
+		}
+		freeaddrinfo(ai);
+
+		*endbr = ']';
 	} else {
-		/* Name or address with default port, eg. www.example.com */
-		port = NULL;
+		/* Name or address with optional port */
+		if ((end = strchr(start, ':')) != NULL) {
+			*end++ = '\0';
+			port = end;
+		}
+
+		if (!valid_domain(start, &errstr)) {
+			log_debug("%s: %s: %s", __func__, errstr, host);
+			return (NULL);
+		}
 	}
 
 	if (port != NULL) {
