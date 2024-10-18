@@ -392,7 +392,7 @@ srv_iter_envelopes(uint32_t msgid, struct envelope *evp)
 	evp->nexttry = nexttry;
 
 	from = evp->id + 1;
-	found++;
+	found = 1;
 	return (1);
 }
 
