@@ -109,8 +109,6 @@ keyproc(int netsock, const char *keyfile, const char **alts, size_t altsz,
 
 	/* File-system, user, and sandbox jail. */
 
-	ERR_load_crypto_strings();
-
 	if (pledge("stdio", NULL) == -1) {
 		warn("pledge");
 		goto out;
@@ -270,6 +268,5 @@ out:
 	X509_NAME_free(name);
 	EVP_PKEY_free(pkey);
 	ERR_print_errors_fp(stderr);
-	ERR_free_strings();
 	return rc;
 }
