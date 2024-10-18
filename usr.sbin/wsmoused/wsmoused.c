@@ -171,14 +171,6 @@ static int p2l[MOUSE_MAXBUTTON] = {
 	MOUSE_BUTTON5,	MOUSE_BUTTON6,	MOUSE_BUTTON7,	MOUSE_BUTTON8,
 };
 
-static char *
-skipspace(char *s)
-{
-	while (isspace((unsigned char)*s))
-		++s;
-	return s;
-}
-
 /* mouse_installmap : install a map between physical and logical buttons */
 static int
 mouse_installmap(char *arg)
@@ -186,31 +178,27 @@ mouse_installmap(char *arg)
 	int pbutton;
 	int lbutton;
 	char *s;
+	const char *errstr;
 
-	while (*arg) {
-		arg = skipspace(arg);
-		s = arg;
-		while (isdigit((unsigned char)*arg))
-			++arg;
-		arg = skipspace(arg);
-		if ((arg <= s) || (*arg != '='))
-			return FALSE;
-		lbutton = atoi(s);
+	if ((s = strchr(arg, '=')) == NULL)
+		return FALSE;
+	*s = '\0';
 
-		arg = skipspace(++arg);
-		s = arg;
-		while (isdigit((unsigned char)*arg))
-			++arg;
-		if (arg <= s || (!isspace((unsigned char)*arg) && *arg != '\0'))
-			return FALSE;
-		pbutton = atoi(s);
-
-		if (lbutton <= 0 || lbutton > MOUSE_MAXBUTTON)
-			return FALSE;
-		if (pbutton <= 0 || pbutton > MOUSE_MAXBUTTON)
-			return FALSE;
-		p2l[pbutton - 1] = lbutton - 1;
+	lbutton = strtonum(arg, 1, MOUSE_MAXBUTTON, &errstr);
+	if (errstr != NULL) {
+		warnx("logical button is %s: %s", errstr, arg);
+		*s = '=';
+		return FALSE;
 	}
+	*s++ = '=';
+
+	pbutton = strtonum(s, 1, MOUSE_MAXBUTTON, &errstr);
+	if (errstr != NULL) {
+		warnx("physical button is %s: %s", errstr, s);
+		return FALSE;
+	}
+
+	p2l[pbutton - 1] = lbutton - 1;
 	return TRUE;
 }
 
@@ -435,6 +423,7 @@ usage(void)
 int
 main(int argc, char **argv)
 {
+	const char *errstr;
 	unsigned int type;
 	int opt;
 	int i;
@@ -482,11 +471,11 @@ main(int argc, char **argv)
 			break;
 		case 'C':
 #define MAX_CLICKTHRESHOLD 2000 /* max delay for double click */
-			mouse.clickthreshold = atoi(optarg);
-			if (mouse.clickthreshold < 0 ||
-			    mouse.clickthreshold > MAX_CLICKTHRESHOLD) {
-				warnx("invalid threshold `%s': max value is %d",
-				    optarg, MAX_CLICKTHRESHOLD);
+			mouse.clickthreshold = strtonum(optarg, 0,
+			    MAX_CLICKTHRESHOLD, &errstr);
+			if (errstr != NULL) {
+				warnx("threshold is %s: `%s'",
+				    errstr, optarg);
 				usage();
 			}
 			break;
