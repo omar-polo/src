@@ -70,6 +70,7 @@ bool    eflag;                          /* specific functions excluded */
 bool    Eflag;                          /* functions excluded with time */
 bool    fflag;                          /* specific functions requested */
 bool    Fflag;                          /* functions requested with time */
+bool    gflag;                          /* profile inputs are raw gmon files */
 bool    kflag;                          /* arcs to be deleted */
 bool    sflag;                          /* sum multiple gmon.out files */
 bool    zflag;                          /* zero time/called functions, too */
@@ -142,6 +143,9 @@ main(int argc, char *argv[])
 	    addlist( flist , *++argv );
 	    fflag = TRUE;
 	    break;
+	case 'g':
+	    gflag = TRUE;
+	    break;
 	case 'k':
 	    addlist( kfromlist , *++argv );
 	    addlist( ktolist , *++argv );
@@ -168,7 +172,7 @@ main(int argc, char *argv[])
     } else {
 	gmonname = GMONNAME;
     }
-    if ( sflag == FALSE ) {
+    if ( gflag == TRUE && sflag == FALSE ) {
         if (pledge("stdio rpath", NULL) == -1)
             err(1, "pledge");
     }
@@ -273,12 +277,23 @@ FILE *
 openpfile(const char *filename)
 {
     struct gmonhdr	tmp;
-    FILE		*pfile;
+    FILE		*ktrace, *pfile;
     int			size;
     int			rate;
 
-    if((pfile = fopen(filename, "r")) == NULL)
-	err(1, "fopen: %s", filename);
+    if (gflag) {
+	if ((pfile = fopen(filename, "r")) == NULL)
+	    err(1, "fopen: %s", filename);
+    } else {
+	ktrace = fopen(filename, "r");
+	if (ktrace == NULL)
+	    err(1, "fopen: %s", filename);
+	pfile = ktrace_extract(ktrace, filename);
+	if (pfile == NULL)
+	    errx(1, "%s: ktrace extraction failed", filename);
+	if (fclose(ktrace) == EOF)
+	    err(1, "fclose: %s", filename);
+    }
     if (fread(&tmp, sizeof(struct gmonhdr), 1, pfile) != 1)
 	errx(1, "%s: bad gmon header", filename);
     if ( s_highpc != 0 && ( tmp.lpc != gmonhdr.lpc ||
