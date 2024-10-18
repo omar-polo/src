@@ -43,13 +43,25 @@
  * For more info on this and all of my stuff, mail edjames@berkeley.edu.
  */
 
+#include <err.h>
+#include <limits.h>
+
 #include "grammar.h"
 
-extern int	line;
+extern int		 line;
+extern const char	*file;
 
 %}
 %%
-[0-9]+			{ yylval.ival = atoi(yytext);  return(ConstOp); }
+[0-9]+			{
+	static const char *errstr;
+
+	yylval.ival = strtonum(yytext, INT_MIN, INT_MAX, &errstr);
+	if (errstr)
+		errx(1, "\"%s\": line %d: number is %s: %s", file, line,
+		    errstr, yytext);
+	return (ConstOp);
+}
 height			{ return(HeightOp); }
 width			{ return(WidthOp); }
 newplane		{ return(NewplaneOp); }
