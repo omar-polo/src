@@ -37,7 +37,8 @@
  * ~ escapes.
  */
 
-#include "rcv.h"
+#include "def.h"
+#include "glob.h"
 #include "extern.h"
 
 /*

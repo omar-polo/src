@@ -30,7 +30,8 @@
  * SUCH DAMAGE.
  */
 
-#include "rcv.h"
+#include "def.h"
+#include "glob.h"
 #include <errno.h>
 #include <fcntl.h>
 #include "extern.h"

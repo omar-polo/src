@@ -38,7 +38,8 @@
  * Local routines that are installation dependent.
  */
 
-#include "rcv.h"
+#include "def.h"
+#include "glob.h"
 #include <stdlib.h>
 #include <fcntl.h>
 #include <pwd.h>

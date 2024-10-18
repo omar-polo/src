@@ -36,7 +36,8 @@
  * Handle name lists.
  */
 
-#include "rcv.h"
+#include "def.h"
+#include "glob.h"
 #include <fcntl.h>
 #include "extern.h"
 

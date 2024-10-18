@@ -36,7 +36,8 @@
  * Generally useful tty stuff.
  */
 
-#include "rcv.h"
+#include "def.h"
+#include "glob.h"
 #include "extern.h"
 #include <sys/ioctl.h>
 #include <errno.h>

@@ -38,7 +38,8 @@
  * loop each time, so they need not be freed.
  */
 
-#include "rcv.h"
+#include "def.h"
+#include "glob.h"
 #include "extern.h"
 
 /*

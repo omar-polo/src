@@ -30,7 +30,8 @@
  * SUCH DAMAGE.
  */
 
-#include "rcv.h"
+#include "def.h"
+#include "glob.h"
 #include "extern.h"
 
 static volatile sig_atomic_t sendsignal;	/* Interrupted by a signal? */
