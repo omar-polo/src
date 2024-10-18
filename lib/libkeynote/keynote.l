@@ -24,6 +24,7 @@
 #include <sys/types.h>
 
 #include <ctype.h>
+#include <limits.h>
 #include <regex.h>
 #include <string.h>
 #include <time.h>
@@ -75,7 +76,18 @@ comment		"#"[^\n]*
 %}
 
 <KEYPREDICATE>{specnumber}"-of"		{
-					  knlval.intval = atoi(kntext);
+					  char t[32];
+					  const char *errstr;
+
+					  strlcpy(t, kntext, sizeof(t));
+					  t[strcspn(t, "-")] = '\0';
+					  knlval.intval = strtonum(t, INT_MIN, INT_MAX,
+					      &errstr);
+					  if (errstr != NULL) {
+					      keynote_errno = ERROR_SYNTAX;
+					      return -1;
+					  }
+
 					  return KOF;
 					}
 <ACTIONSTRING,KEYPREDICATE>"("		return OPENPAREN;
@@ -160,7 +172,14 @@ comment		"#"[^\n]*
 		  	        return STRING;
 			      }
 <ACTIONSTRING>{number}	      {
-				knlval.intval = atoi(kntext);
+			        const char *errstr;
+
+				knlval.intval = strtonum(kntext, INT_MIN,
+				    INT_MAX, &errstr);
+				if (errstr != NULL) {
+				    keynote_errno = ERROR_SYNTAX;
+				    return -1;
+				}
 				return NUM;
 			      }
 {litstring}                   {

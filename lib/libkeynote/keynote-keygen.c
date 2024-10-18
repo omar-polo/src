@@ -24,6 +24,7 @@
 
 #include <ctype.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -99,6 +100,7 @@ keynote_keygen(int argc, char *argv[])
 {
     int begin = KEY_PRINT_OFFSET, prlen = KEY_PRINT_LENGTH;
     char *foo, *privalgname, seed[SEED_LEN];
+    const char *errstr;
     int alg, enc, ienc, len = 0, counter;
     struct keynote_deckey dc;
     unsigned long h;
@@ -135,20 +137,20 @@ keynote_keygen(int argc, char *argv[])
 
     if (argc > 5)
     {
-	begin = atoi(argv[5]);
-	if (begin <= -1)
+	begin = strtonum(argv[5], 0, INT_MAX, &errstr);
+	if (errstr)
 	{
-	    fprintf(stderr, "Erroneous value for print-offset parameter.\n");
+	    fprintf(stderr, "print-offset is %s: %s\n", errstr, argv[5]);
 	    exit(1);
 	}
     }
 
     if (argc > 6)
     {
-	prlen = atoi(argv[6]);
-	if (prlen <= 0)
+	prlen = strtonum(argv[6], 1, INT_MAX, &errstr);
+	if (errstr)
 	{
-	    fprintf(stderr, "Erroneous value for print-length parameter.\n");
+	    fprintf(stderr, "print-length is %s: %s\n", errstr, argv[6]);
 	    exit(1);
 	}
     }
@@ -162,11 +164,11 @@ keynote_keygen(int argc, char *argv[])
     }
 
     alg = keynote_get_key_algorithm(algname, &enc, &ienc);
-    len = atoi(argv[2]);
+    len = strtonum(argv[2], 1, INT_MAX, &errstr);
 
-    if (len <= 0)
+    if (errstr)
     {
-	fprintf(stderr, "Invalid specified keysize %d\n", len);
+	fprintf(stderr, "keysize is %s: %s\n", errstr, argv[2]);
 	exit(1);
     }
 

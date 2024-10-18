@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 
 #include <ctype.h>
+#include <limits.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -48,6 +49,7 @@ keynote_sign(int argc, char *argv[])
 {
     int begin = SIG_PRINT_OFFSET, prlen = SIG_PRINT_LENGTH;
     char *buf, *buf2, *sig, *algname;
+    const char *errstr;
     int fd, flg = 0, buflen;
     struct stat sb;
 
@@ -65,20 +67,20 @@ keynote_sign(int argc, char *argv[])
 
     if (argc > 4 + flg)
     {
-        begin = atoi(argv[4 + flg]);
-        if (begin <= -1)
+	begin = strtonum(argv[4 + flg], 0, INT_MAX, &errstr);
+        if (errstr)
         {
-            fprintf(stderr, "Erroneous value for print-offset parameter.\n");
+            fprintf(stderr, "print-offset is %s: %s\n", errstr, argv[4 + flg]);
             exit(1);
         }
     }
-        
+
     if (argc > 5 + flg)
     {
-        prlen = atoi(argv[5 + flg]);
-        if (prlen <= 0)
+        prlen = strtonum(argv[5 + flg], 1, INT_MAX, &errstr);
+        if (errstr)
         {
-            fprintf(stderr, "Erroneous value for print-length parameter.\n");
+            fprintf(stderr, "print-length is %s: %s\n", errstr, argv[5 + flg]);
             exit(1);
         }
     }
