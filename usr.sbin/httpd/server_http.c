@@ -1245,8 +1245,9 @@ server_expand_http(struct client *clt, const char *val, char *buf,
 				return (NULL);
 		}
 		if (strstr(val, "$SERVER_NAME") != NULL) {
-			if ((str = url_encode(srv_conf->name))
-			     == NULL)
+			if (desc->http_host == NULL)
+				return (NULL);
+			if ((str = url_encode(desc->http_host)) == NULL)
 				return (NULL);
 			ret = expand_string(buf, len, "$SERVER_NAME", str);
 			free(str);
