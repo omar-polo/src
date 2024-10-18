@@ -85,6 +85,7 @@ main(int ac, char **av)
 	static struct timeval	linger = { 0, 0 };
 	static struct timeval	timeout = { 0, 0 }, *to;
 	struct spawn	*sp, *spnext;
+	const char	*errstr;
 	int		ret;
 	int		nready;
 	int		fd;
@@ -104,7 +105,10 @@ main(int ac, char **av)
 			break;
 		  case 'p':
 			should_announce = FALSE;
-			Server_port = atoi(optarg);
+			Server_port = strtonum(optarg, 1, 65535, &errstr);
+			if (errstr)
+				errx(1, "port number is %s: %s", errstr,
+				    optarg);
 			break;
 		  case 'a':
 			if (inet_pton(AF_INET, optarg,
