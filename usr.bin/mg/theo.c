@@ -197,6 +197,7 @@ static const char *talk[] = {
 	"Well finally everyone can see that the shit is really shitty.",
 	"All that complexity stopped us from getting flying cars by today.",
 	"You pointed a gun at your own foot.  Have you noticed that noone else has holes in their feet?",
+	"I'm thinking you have a poor understanding of social cause and effect.",
 };
 
 static const int ntalk = sizeof(talk)/sizeof(talk[0]);
