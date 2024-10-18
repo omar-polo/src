@@ -177,20 +177,23 @@ game(void)
 		flag = TRUE;
 		do {
 			if (!rflag) {			/* player cuts deck */
+				const char *errstr;
 				char *foo;
 
 				/* This is silly, but we should parse user input
 				 * even if we're not actually going to use it.
 				 */
-				do {
+				for (;;) {
 					msg(quiet ? "Cut for crib? " :
 				    "Cut to see whose crib it is -- low card wins? ");
 					foo = get_line();
-					if (*foo != '\0' && ((i = atoi(foo)) < 4 || i > 48))
+					strtonum(foo, 4, 48, &errstr);
+					if (errstr != NULL) {
 						msg("Invalid cut");
-					else
-						*foo = '\0';
-				} while (*foo != '\0');
+						continue;
+					}
+					break;
+				}
 			}
 			i = arc4random_uniform(CARDS);	/* random cut */
 			do {	/* comp cuts deck */
@@ -359,20 +362,23 @@ cut(bool mycrib, int pos)
 	win = FALSE;
 	if (mycrib) {
 		if (!rflag) {	/* random cut */
+			const char *errstr;
 			char *foo;
 
 			/* This is silly, but we should parse user input,
 			 * even if we're not actually going to use it.
 			 */
-			do {
+			for (;;) {
 				msg(quiet ? "Cut the deck? " :
 				    "How many cards down do you wish to cut the deck? ");
 				foo = get_line();
-				if (*foo != '\0' && ((i = atoi(foo)) < 4 || i > 36))
+				strtonum(foo, 4, 36, &errstr);
+				if (errstr != NULL) {
 					msg("Invalid cut");
-				else
-					*foo = '\0';
-			} while (*foo != '\0');
+					continue;
+				}
+				break;
+			}
 		}
 		i = arc4random_uniform(CARDS - pos);
 		turnover = deck[i + pos];
