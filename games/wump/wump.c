@@ -133,6 +133,7 @@ int	wump_nearby(void);
 int
 main(int argc, char *argv[])
 {
+	const char *errstr;
 	int c;
 
 	if (pledge("stdio rpath proc exec", NULL) == -1)
@@ -145,10 +146,17 @@ main(int argc, char *argv[])
 #endif
 		switch (c) {
 		case 'a':
-			arrow_num = atoi(optarg);
+			arrow_num = strtonum(optarg, 1, 1000, &errstr);
+			if (errstr)
+				errx(1, "number of magic arrows is %s: %s",
+				    errstr, optarg);
 			break;
 		case 'b':
-			bat_num = atoi(optarg);
+			bat_num = strtonum(optarg, 1, MAX_ROOMS_IN_CAVE,
+			    &errstr);
+			if (errstr)
+				errx(1, "number of rooms with bats is %s: %s",
+				    errstr, optarg);
 			break;
 #ifdef DEBUG
 		case 'd':
@@ -162,22 +170,25 @@ main(int argc, char *argv[])
 			oldstyle = 1;
 			break;
 		case 'p':
-			pit_num = atoi(optarg);
+			pit_num = strtonum(optarg, 1, MAX_ROOMS_IN_CAVE,
+			    &errstr);
+			if (errstr)
+				errx(1, "number of rooms with pits is %s: %s",
+				    errstr, optarg);
 			break;
 		case 'r':
-			room_num = atoi(optarg);
-			if (room_num < MIN_ROOMS_IN_CAVE)
-				errx(1,
-	"no self-respecting wumpus would live in such a small cave!");
-			if (room_num > MAX_ROOMS_IN_CAVE)
-				errx(1,
-	"even wumpii can't furnish caves that large!");
+			room_num = strtonum(optarg, MIN_ROOMS_IN_CAVE,
+			    MAX_ROOMS_IN_CAVE, &errstr);
+			if (errstr)
+				errx(1, "number of rooms is %s: %s",
+				    errstr, optarg);
 			break;
 		case 't':
-			link_num = atoi(optarg);
-			if (link_num < 2)
-				errx(1,
-	"wumpii like extra doors in their caves!");
+			link_num = strtonum(optarg, 2, MAX_LINKS_IN_ROOM,
+			    &errstr);
+			if (errstr)
+				errx(1, "number of tunnels is %s: %s",
+				    errstr, optarg);
 			break;
 		default:
 			usage();
