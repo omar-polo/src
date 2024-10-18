@@ -997,7 +997,7 @@ extern int yyparse PROTO ((void));	/* the YACC parser */
 extern int flexscan PROTO ((void));
 
 /* Open the given file (if NULL, stdin) for scanning. */
-extern void set_input_file PROTO ((char *));
+extern void set_input_file PROTO ((const char *));
 
 /* Wrapup a file in the lexical analyzer. */
 extern int yywrap PROTO ((void));

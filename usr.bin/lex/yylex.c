@@ -40,7 +40,7 @@
 
 /* yylex - scan for a regular expression token */
 
-int     yylex ()
+int     yylex (void)
 {
 	int     toktype;
 	static int beglin = false;
