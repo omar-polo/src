@@ -36,6 +36,7 @@
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
+#include <limits.h>
 #include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,6 +90,7 @@ main(int argc, char *argv[])
 {
 	int ch, done;
 	char *bspec, *p;
+	const char *errstr;
 
 	batch = debug = reuse = selfuse;
 	bspec = NULL;
@@ -110,12 +112,15 @@ main(int argc, char *argv[])
 			debug = 1;
 			break;
 		case 't':
-			if ((tlimit = atoi(optarg)) < 1)
-				errx(1, "bad time limit");
+			tlimit = strtonum(optarg, 1, INT_MAX, &errstr);
+			if (errstr)
+				errx(1, "timeout is %s: %s", errstr, optarg);
 			break;
 		case 'w':
-			if ((minlength = atoi(optarg)) < 3)
-				errx(1, "min word length must be > 2");
+			minlength = strtonum(optarg, 3, 64, &errstr);
+			if (errstr)
+				errx(1, "min word length is %s: %s",
+				    errstr, optarg);
 			break;
 		case 'h':
 		default:
