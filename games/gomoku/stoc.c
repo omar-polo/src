@@ -72,6 +72,7 @@ stoc(int s)
 int
 ctos(char *mp)
 {
+	const char *errstr;
 	int i;
 
 	for (i = 0; mv[i].m_code >= 0; i++)
@@ -79,8 +80,8 @@ ctos(char *mp)
 			return(mv[i].m_code);
 	if (!isalpha((unsigned char)mp[0]))
 		return(ILLEGAL);
-	i = atoi(&mp[1]);
-	if (i < 1 || i > 19)
+	i = strtonum(&mp[1], 1, 19, &errstr);
+	if (errstr != NULL)
 		return(ILLEGAL);
 	return(PT(lton(mp[0]), i));
 }
