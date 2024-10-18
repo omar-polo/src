@@ -1193,6 +1193,7 @@ yylex(void)
 {
 	static int cpos;
 	char *cp, *cp2;
+	const char *errstr;
 	struct tab *p;
 	int n;
 	char c;
@@ -1323,7 +1324,9 @@ yylex(void)
 					;
 				c = cbuf[cpos];
 				cbuf[cpos] = '\0';
-				yylval.i = atoi(cp);
+				yylval.i = strtonum(cp, 0, INT_MAX, &errstr);
+				if (errstr)
+					break;
 				cbuf[cpos] = c;
 				state = STR1;
 				return (NUMBER);
@@ -1336,13 +1339,15 @@ yylex(void)
 				long long llval;
 
 				cp = &cbuf[cpos];
-				errno = 0;
-				llval = strtoll(cp, &cp2, 10);
-				if (llval < 0 ||
-				    (errno == ERANGE && llval == LLONG_MAX))
+				while (isdigit((unsigned char)cbuf[++cpos]))
+					;
+				c = cbuf[cpos];
+				cbuf[cpos] = '\0';
+				llval = strtonum(cp, 0, LLONG_MAX, &errstr);
+				if (errstr)
 					break;
+				cbuf[cpos] = c;
 
-				cpos = (int)(cp2 - cbuf);
 				if (llval > INT_MAX) {
 					yylval.o = llval;
 					return (BIGNUM);
