@@ -2496,7 +2496,7 @@ listener_type	: socket_listener
 		| if_listener
 		;
 
-socket_listener	: SOCKET sock_listen {
+socket_listener	: SOCKET sock_listen_l {
 			if (conf->sc_sock_listener) {
 				yyerror("socket listener already configured");
 				YYERROR;
@@ -2505,20 +2505,35 @@ socket_listener	: SOCKET sock_listen {
 		}
 		;
 
-if_listener	: STRING if_listen {
+if_listener	: STRING if_listen_l {
 			listen_opts.ifx = $1;
 			create_if_listener(&listen_opts);
 		}
 		;
 
-sock_listen	: opt_sock_listen sock_listen
+sock_listen_l	: '{' optnl sock_listen_nl '}'
+		| sock_listen
+		;
+
+sock_listen_nl	: sock_listen_nl opt_sock_listen optnl
 		| /* empty */
 		;
 
-if_listen	: opt_if_listen if_listen
+sock_listen	: sock_listen opt_sock_listen
 		| /* empty */
 		;
 
+if_listen_l	: '{' optnl if_listen_nl '}'
+		| if_listen
+		;
+
+if_listen_nl	: if_listen_nl opt_if_listen optnl
+		| /* empty */
+		;
+
+if_listen	: if_listen opt_if_listen
+		| /* empty */
+		;
 
 listen		: LISTEN {
 			memset(&listen_opts, 0, sizeof listen_opts);

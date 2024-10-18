@@ -442,6 +442,7 @@ which can be either
 or
 .Cm inet6 .
 .Pp
+Multiple options may be specified within curly braces.
 The
 .Ar options
 are as follows:
@@ -568,6 +569,7 @@ Listen for incoming SMTP connections on the Unix domain socket
 .Pa /var/run/smtpd.sock .
 This is done by default, even if the directive is absent.
 .Pp
+Multiple options may be specified within curly braces.
 The
 .Ar options
 are as follows:
@@ -1267,7 +1269,11 @@ pki mail.example.com key "/etc/ssl/private/mail.example.com.key"
 table aliases file:/etc/mail/aliases
 
 listen on lo0
-listen on egress tls pki mail.example.com auth
+listen on egress {
+	tls
+	pki mail.example.com
+	auth
+}
 
 action mda_with_aliases mda "/path/to/mda \-f \-" alias <aliases>
 action mda_without_aliases mda "/path/to/mda \-f \-"
