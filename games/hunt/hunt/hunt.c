@@ -88,6 +88,7 @@ main(int ac, char **av)
 	long		enter_status;
 	int		option;
 	struct servent	*se;
+	const char	*errstr;
 
 	enter_status = env_init((long) Q_CLOAK);
 	while ((c = getopt(ac, av, "Sbcfh:l:mn:op:qst:w:")) != -1) {
@@ -123,7 +124,10 @@ main(int ac, char **av)
 			break;
 		case 'p':
 			use_port = optarg;
-			Server_port = atoi(use_port);
+			Server_port = strtonum(use_port, 1, 65536, &errstr);
+			if (errstr)
+				errx(1, "server port is %s: %s", errstr,
+				    use_port);
 			break;
 		case 'c':
 			enter_status = Q_CLOAK;
@@ -518,7 +522,8 @@ static long
 env_init(long enter_status)
 {
 	int	i;
-	char	*envp, *envname, *s;
+	char	*envp, *envname, *s, *t;
+	const char *errstr;
 
 	/* Map all keys to themselves: */
 	for (i = 0; i < 256; i++)
@@ -555,14 +560,21 @@ env_init(long enter_status)
 				envp = s + 1;
 			}
 			else if (strncmp(envp, "port=", s - envp + 1) == 0) {
-				use_port = s + 1;
-				Server_port = atoi(use_port);
+				t = s + 1;
+				*s = '\0';
+				envp = s + 1;
+				i = strtonum(t, 1, 65536, &errstr);
+				if (errstr != NULL)
+					printf("port number is %s: %s\n", errstr,
+					    t);
+				else {
+					use_port = t;
+					Server_port = i;
+				}
 				if ((s = strchr(envp, ',')) == NULL) {
 					*envp = '\0';
 					break;
 				}
-				*s = '\0';
-				envp = s + 1;
 			}
 			else if (strncmp(envp, "host=", s - envp + 1) == 0) {
 				Sock_host = s + 1;

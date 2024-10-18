@@ -2,9 +2,11 @@
 /* David Leonard <d@openbsd.org>, 1999. Public domain. */
 
 #include <sys/select.h>
+
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
@@ -123,32 +125,28 @@ static struct kwvar keywords[] = {
 static char *
 parse_int(char *p, struct kwvar *kvp, const char *fnm, int *linep)
 {
-	char *valuestart, *digitstart;
+	const char *errstr;
+	char *valuestart;
 	char savec;
 	int newval;
 
 	/* expect a number */
 	valuestart = p;
-	if (*p == '-')
-		p++;
-	digitstart = p;
-	while (isdigit((unsigned char)*p))
-		p++;
-	if ((*p == '\0' || isspace((unsigned char)*p) || *p == '#') &&
-	    digitstart != p) {
-		savec = *p;
-		*p = '\0';
-		newval = atoi(valuestart);
-		*p = savec;
-		logx(LOG_INFO, "%s:%d: %s: %d -> %d",
-			fnm, *linep, kvp->kw, *(int *)kvp->var, newval);
-		*(int *)kvp->var = newval;
-		return p;
-	} else {
-		logx(LOG_ERR, "%s:%d: invalid integer value \"%s\"",
-		    fnm, *linep, valuestart);
+	p += strcspn(p, " \t#");
+	savec = *p;
+	*p = '\0';
+	newval = strtonum(valuestart, INT_MIN, INT_MAX, &errstr);
+	if (errstr != NULL) {
+		logx(LOG_ERR, "%s:%d: integer value is %s: \"%s\"",
+		    fnm, *linep, errstr, valuestart);
 		return NULL;
 	}
+
+	*p = savec;
+	logx(LOG_INFO, "%s:%d: %s: %d -> %d",
+	    fnm, *linep, kvp->kw, *(int *)kvp->var, newval);
+	*(int *)kvp->var = newval;
+	return p;
 }
 
 static char *
