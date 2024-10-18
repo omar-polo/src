@@ -236,8 +236,8 @@ static struct loption option[] = {
 	{ 'L', &L__optname,
 		BOOL, OPT_ON, &use_lessopen, NULL,
 		{
-			"(ignored)",
-			"(ignored)",
+			"Don't use the LESSOPEN filter",
+			"Use the LESSOPEN filter",
 			NULL
 		}
 	},
