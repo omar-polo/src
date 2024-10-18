@@ -62,8 +62,9 @@
  */
 
 #include <sys/stat.h>
-#include <errno.h>
 
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -103,6 +104,7 @@ static void chdirx(char *, boolean);
 int
 main(int argc, char **argv)
 {
+	const char *errstr;
 	int fd;
 #ifdef CHDIR
 	char *dir;
@@ -223,8 +225,11 @@ main(int argc, char **argv)
 		}
 	}
 
-	if(argc > 1)
-		locknum = atoi(argv[1]);
+	if(argc > 1) {
+		locknum = strtonum(argv[1], 0, INT_MAX, &errstr);
+		if (errstr != NULL)
+			error("lock number is %s: %s", errstr, argv[1]);
+	}
 #ifdef MAX_NR_OF_PLAYERS
 	if(!locknum || locknum > MAX_NR_OF_PLAYERS)
 		locknum = MAX_NR_OF_PLAYERS;
