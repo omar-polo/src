@@ -172,8 +172,9 @@ problem(void)
 {
 	char *p;
 	time_t start, finish;
-	int left, op, right, result;
+	int left, op, right, answer, result;
 	char line[80];
+	const char *errstr;
 
 	op = keys[arc4random_uniform(nkeys)];
 	if (op != '/')
@@ -220,12 +221,14 @@ retry:
 			(void)printf("\n");
 			return(EOF);
 		}
+		line[strcspn(line, "\n")] = '\0';
 		for (p = line; isspace((unsigned char)*p); ++p);
-		if (!isdigit((unsigned char)*p)) {
+		answer = strtonum(p, INT_MIN, INT_MAX, &errstr);
+		if (errstr) {
 			(void)printf("Please type a number.\n");
 			continue;
 		}
-		if (atoi(p) == result) {
+		if (answer == result) {
 			(void)printf("Right!\n");
 			++nright;
 			break;
