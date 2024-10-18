@@ -45,6 +45,7 @@ int	 rsae_priv_enc(int, const u_char *, u_char *, RSA *, int);
 int	 rsae_priv_dec(int, const u_char *, u_char *, RSA *, int);
 
 static struct relayd *env = NULL;
+static u_int seq;
 
 static struct privsep_proc procs[] = {
 	{ "parent",	PROC_PARENT,	ca_dispatch_parent },
@@ -307,7 +308,6 @@ rsae_send_imsg(int flen, const u_char *from, u_char *to, RSA *rsa,
 	struct imsg	 imsg;
 	int		 n, done = 0, cnt = 0;
 	u_char		*toptr;
-	static u_int	 seq = 0;
 
 	if ((hash = RSA_get_ex_data(rsa, 0)) == NULL)
 		return 0;
@@ -418,13 +418,112 @@ rsae_priv_dec(int flen, const u_char *from, u_char *to, RSA *rsa, int padding)
 	return rsae_send_imsg(flen, from, to, rsa, padding, IMSG_CA_PRIVDEC);
 }
 
-void
-ca_engine_init(struct relayd *x_env)
+/*
+ * ECDSA privsep engine (called from unprivileged processes)
+ */
+
+const EC_KEY_METHOD *ecdsa_default = NULL;
+
+static EC_KEY_METHOD *ecdsae_method = NULL;
+
+static ECDSA_SIG *
+ecdsae_send_enc_imsg(const unsigned char *dgst, int dgst_len,
+    const BIGNUM *inv, const BIGNUM *rp, EC_KEY *eckey)
+{
+	struct privsep	*ps = env->sc_ps;
+	struct imsgbuf	*ibuf;
+	struct imsgev	*iev;
+	struct imsg	 imsg;
+	struct ctl_keyop cko;
+	struct iovec	 iov[2];
+	int		 n, done = 0, cnt = 0;
+	const void	*toptr;
+	char		*hash;
+	size_t		 tlen;
+	ECDSA_SIG	*sig = NULL;
+
+	if ((hash = EC_KEY_get_ex_data(eckey, 0)) == NULL)
+		return NULL;
+
+	iev = proc_iev(ps, PROC_CA, ps->ps_instance);
+	ibuf = &iev->ibuf;
+
+	/*
+	 * XXX this could be nicer...
+	 */
+	memset(&cko, 0, sizeof(cko));
+	(void)strlcpy(cko.cko_hash, hash, sizeof(cko.cko_hash));
+	cko.cko_proc = ps->ps_instance;
+	cko.cko_flen = dgst_len;
+	cko.cko_cookie = seq++;
+
+	iov[cnt].iov_base = &cko;
+	iov[cnt++].iov_len = sizeof(cko);
+	iov[cnt].iov_base = (void *)(uintptr_t)dgst;
+	iov[cnt++].iov_len = dgst_len;
+
+	/*
+	 * Send a synchronous imsg because we cannot defer the ECDSA
+	 * operation in OpenSSL's engine layer.
+	 */
+	if (imsg_composev(ibuf, IMSG_CA_ECDSA_SIGN, 0, 0, -1, iov, cnt) == -1)
+		log_warn("%s: imsg_composev", __func__);
+	if (imsg_flush(ibuf) == -1)
+		log_warn("%s: imsg_flush", __func__);
+
+	while (!done) {
+		if ((n = imsg_read(ibuf)) == -1 && errno != EAGAIN)
+			fatalx("imsg_read");
+		if (n == 0)
+			fatalx("pipe closed");
+
+		while (!done) {
+			if ((n = imsg_get(ibuf, &imsg)) == -1)
+				fatalx("imsg_get error");
+			if (n == 0)
+				break;
+
+			IMSG_SIZE_CHECK(&imsg, (&cko));
+			memcpy(&cko, imsg.data, sizeof(cko));
+
+			if (imsg.hdr.type != IMSG_CA_ECDSA_SIGN)
+				fatalx("invalid response");
+
+			tlen = cko.cko_tlen;
+			if (tlen > 0) {
+				if (IMSG_DATA_SIZE(&imsg) !=
+				    (sizeof(cko) + tlen))
+					fatalx("data size");
+				d2i_ECDSA_SIG(&sig, (const unsigned char **)&toptr, tlen);
+			}
+			done = 1;
+
+			imsg_free(&imsg);
+		}
+	}
+	imsg_event_add(iev);
+
+	return (sig);
+}
+
+static ECDSA_SIG *
+ecdsae_do_sign(const unsigned char *dgst, int dgst_len, const BIGNUM *inv,
+    const BIGNUM *rp, EC_KEY *eckey)
+{
+	ECDSA_SIG *(*psign_sig)(const unsigned char *, int, const BIGNUM *,
+	    const BIGNUM *, EC_KEY *);
+
+	DPRINTF("%s:%d", __func__, __LINE__);
+	if (EC_KEY_get_ex_data(eckey, 0) != NULL)
+		return (ecdsae_send_enc_imsg(dgst, dgst_len, inv, rp, eckey));
+	EC_KEY_METHOD_get_sign(ecdsa_default, NULL, NULL, &psign_sig);
+	return (psign_sig(dgst, dgst_len, inv, rp, eckey));
+}
+
+static void
+rsa_engine_init(void)
 {
 	const char	*errstr;
-
-	if (env == NULL)
-		env = x_env;
 
 	if (rsa_default != NULL)
 		return;
@@ -454,4 +553,47 @@ ca_engine_init(struct relayd *x_env)
  fail:
 	RSA_meth_free(rsae_method);
 	fatalx("%s: %s", __func__, errstr);
+}
+
+static void
+ecdsa_engine_init(void)
+{
+	int (*sign)(int, const unsigned char *, int, unsigned char *,
+	    unsigned int *, const BIGNUM *, const BIGNUM *, EC_KEY *);
+	int (*sign_setup)(EC_KEY *, BN_CTX *, BIGNUM **, BIGNUM **);
+	const char *errstr;
+
+	if (ecdsa_default != NULL)
+		return;
+
+	if ((ecdsa_default = EC_KEY_get_default_method()) == NULL) {
+		errstr = "EC_KEY_get_default_method";
+		goto fail;
+	}
+
+	if ((ecdsae_method = EC_KEY_METHOD_new(ecdsa_default)) == NULL) {
+		errstr = "EC_KEY_METHOD_new";
+		goto fail;
+	}
+
+	EC_KEY_METHOD_get_sign(ecdsa_default, &sign, &sign_setup, NULL);
+	EC_KEY_METHOD_set_sign(ecdsae_method, sign, sign_setup,
+	    ecdsae_do_sign);
+
+	EC_KEY_set_default_method(ecdsae_method);
+
+	return;
+
+ fail:
+	fatalx("%s", errstr);
+}
+
+void
+ca_engine_init(struct relayd *x_env)
+{
+	if (env == NULL)
+		env = x_env;
+
+	rsa_engine_init();
+	ecdsa_engine_init();
 }
