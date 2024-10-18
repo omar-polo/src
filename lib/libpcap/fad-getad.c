@@ -90,7 +90,6 @@ add_or_find_if(pcap_if_t **curdev_ret, pcap_if_t **alldevs, const char *name,
 	pcap_t *p;
 	pcap_if_t *curdev, *prevdev, *nextdev;
 	int this_instance;
-	size_t len;
 
 	/*
 	 * Can we open this interface for live capture?
@@ -137,26 +136,22 @@ add_or_find_if(pcap_if_t **curdev_ret, pcap_if_t **alldevs, const char *name,
 		 * Fill in the entry.
 		 */
 		curdev->next = NULL;
-		len = strlen(name) + 1;
-		curdev->name = malloc(len);
+		curdev->name = strdup(name);
 		if (curdev->name == NULL) {
 			(void)snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			    "malloc: %s", pcap_strerror(errno));
+			    "strdup: %s", pcap_strerror(errno));
 			goto fail;
 		}
-		strlcpy(curdev->name, name, len);
 		if (description != NULL) {
 			/*
 			 * We have a description for this interface.
 			 */
-			len = strlen(description) + 1;
-			curdev->description = malloc(len);
+			curdev->description = strdup(description);
 			if (curdev->description == NULL) {
 				(void)snprintf(errbuf, PCAP_ERRBUF_SIZE,
-				    "malloc: %s", pcap_strerror(errno));
+				    "strdup: %s", pcap_strerror(errno));
 				goto fail;
 			}
-			strlcpy(curdev->description, description, len);
 		}
 		curdev->addresses = NULL;	/* list starts out as empty */
 		curdev->flags = 0;

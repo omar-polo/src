@@ -302,12 +302,13 @@ tcp-urg			{ yylval.i = 0x20; return NUM; }
 [A-Za-z] {		 yylval.s = sdup((char *)yytext); return ID; }
 "\\"[^ !()\n\t]+	{ yylval.s = sdup((char *)yytext + 1); return ID; }
 [^ \[\]\t\n\-_.A-Za-z0-9!<>()&|=]+ {
-			size_t len = strlen(yytext) * 4 + 1;
-			char *v = malloc(len);
-			if (v != NULL)
-				strnvis(v, yytext, len, 0);
-			bpf_error("illegal token: %s", v);
-			free(v);
+			char *v;
+
+			if (stravis(&v, yytext, 0) != -1) {
+				bpf_error("illegal token: %s", v);
+				free(v);
+			} else
+				bpf_error("illegal token");
 			}
 .			{
 			  char v[5];

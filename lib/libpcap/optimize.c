@@ -1791,7 +1791,7 @@ opt_init(struct block *root)
 		goto fail1;
 	size1 *= sizeof(*space1);
 
-	space1 = (bpf_u_int32 *)malloc(size1);
+	space1 = malloc(size1);
 	if (space1 == NULL) {
 fail1:
 		bpf_error("malloc");
@@ -1805,7 +1805,7 @@ fail1:
 		goto fail2;
 	size2 *= sizeof(*space2);
 
-	space2 = (bpf_u_int32 *)malloc(size2);
+	space2 = malloc(size2);
 	if (space2 == NULL) {
 fail2:
 		free(space1);
