@@ -517,7 +517,7 @@ loadbuffer(char *bname)
 			return (FALSE);
 		}
 	} else {
-		if ((adjf = adjustname(bname, TRUE)) == NULL)
+		if ((adjf = adjustname(bname)) == NULL)
 			return (FALSE);
 		if ((bufp = findbuffer(adjf)) == NULL)
 			return (FALSE);

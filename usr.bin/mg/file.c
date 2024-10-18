@@ -37,7 +37,7 @@ fileinsert(int f, int n)
 		return (ABORT);
 	else if (bufp[0] == '\0')
 		return (FALSE);
-	adjf = adjustname(bufp, TRUE);
+	adjf = adjustname(bufp);
 	if (adjf == NULL)
 		return (FALSE);
 	return (insertfile(adjf, NULL, FALSE));
@@ -64,7 +64,7 @@ filevisit(int f, int n)
 		return (ABORT);
 	else if (bufp[0] == '\0')
 		return (FALSE);
-	adjf = adjustname(fname, TRUE);
+	adjf = adjustname(fname);
 	if (adjf == NULL)
 		return (FALSE);
 	if (fisdir(adjf) == TRUE)
@@ -116,7 +116,7 @@ do_filevisitalt(char *fn)
 	if (status == ABORT || status == FALSE)
 		return (ABORT);
 
-	adjf = adjustname(fn, TRUE);
+	adjf = adjustname(fn);
 	if (adjf == NULL)
 		return (FALSE);
 	if (fisdir(adjf) == TRUE)
@@ -165,7 +165,7 @@ poptofile(int f, int n)
 		return (ABORT);
 	else if (bufp[0] == '\0')
 		return (FALSE);
-	adjf = adjustname(fname, TRUE);
+	adjf = adjustname(fname);
 	if (adjf == NULL)
 		return (FALSE);
 	if (fisdir(adjf) == TRUE)
@@ -519,7 +519,7 @@ filewrite(int f, int n)
 	else if (bufp[0] == '\0')
 		return (FALSE);
 
-	adjfname = adjustname(fname, TRUE);
+	adjfname = adjustname(fname);
 	if (adjfname == NULL)
 		return (FALSE);
 

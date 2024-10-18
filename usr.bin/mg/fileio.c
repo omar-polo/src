@@ -288,37 +288,73 @@ fbackupfile(const char *fn)
 }
 
 /*
- * Convert "fn" to a canonicalized absolute filename, replacing
+ * Convert "p" to a canonicalized absolute filename, replacing
  * a leading ~/ with the user's home dir, following symlinks, and
  * remove all occurrences of /./ and /../
  */
 char *
-adjustname(const char *fn, int slashslash)
+adjustname(const char *p)
 {
 	static char	 fnb[PATH_MAX];
-	const char	*cp, *ep = NULL;
-	char		*path;
+	const char	*ep = NULL;
+	struct passwd	*pw;
+	char		*q, buf[PATH_MAX], user[LOGIN_NAME_MAX];
+	size_t		 ulen;
 
-	if (slashslash == TRUE) {
-		cp = fn + strlen(fn) - 1;
-		for (; cp >= fn; cp--) {
-			if (ep && (*cp == '/')) {
-				fn = ep;
-				break;
-			}
-			if (*cp == '/' || *cp == '~')
-				ep = cp;
-			else
-				ep = NULL;
+	buf[0] = '\0';
+	if (*p == '~') {
+		p++;
+		ep = strchr(p, '/');
+		if (ep == NULL)
+			ep = strchr(p, '\0');
+		ulen = ep - p;
+		if (ulen == 0)
+			pw = getpwuid(geteuid());
+		else {
+			if (ulen >= sizeof(user))
+				return (NULL);
+			memcpy(user, p, ulen);
+			user[ulen] = '\0';
+			pw = getpwnam(user);
 		}
-	}
-	if ((path = expandtilde(fn)) == NULL)
+		if (pw == NULL ||
+		    strlcpy(buf, pw->pw_dir, sizeof(buf)) >= sizeof(buf) ||
+		    strlcat(buf, "/", sizeof(buf)) >= sizeof(buf)) {
+			dobeep_msg("can't expand tilde");
+			return (NULL);
+		}
+		p = ep;
+	} else if (*p != '/' && !getbufcwd(buf, sizeof(buf)))
 		return (NULL);
 
-	if (realpath(path, fnb) == NULL)
-		(void)strlcpy(fnb, path, sizeof(fnb));
+	if (strlcat(buf, p, sizeof(buf)) >= sizeof(buf)) {
+		dobeep_msg("Path too long");
+		return (NULL);
+	}
 
-	free(path);
+	p = q = buf;
+	while (*p && (q - buf) < sizeof(buf)) {
+		if (p[0] == '/' && (p[1] == '/' || p[1] == '\0'))
+			p++;
+		else if (p[0] == '/' && p[1] == '.' &&
+		    (p[2] == '/' || p[2] == '\0'))
+			p += 2;
+		else if (p[0] == '/' && p[1] == '.' && p[2] == '.' &&
+		    (p[3] == '/' || p[3] == '\0')) {
+			p += 3;
+			while (q != buf && *--q != '/')
+				; /* nop */
+		} else
+			*q++ = *p++;
+	}
+	if (*p != '\0' || q - buf >= sizeof(buf)) {
+		dobeep_msg("Path too long");
+		return (NULL);
+	}
+	if (q == buf)
+		*q++ = '/';
+	*q = '\0';
+	(void)strlcpy(fnb, buf, sizeof(fnb));
 	return (fnb);
 }
 
@@ -464,10 +500,10 @@ make_file_list(char *buf)
 	len = strlen(buf);
 	if (len && buf[len - 1] == '.') {
 		buf[len - 1] = 'x';
-		dir = adjustname(buf, TRUE);
+		dir = adjustname(buf);
 		buf[len - 1] = '.';
 	} else
-		dir = adjustname(buf, TRUE);
+		dir = adjustname(buf);
 	if (dir == NULL)
 		return (NULL);
 	/*
@@ -648,7 +684,7 @@ backuptohomedir(int f, int n)
 	char		*p;
 
 	if (bkupdir == NULL) {
-		p = adjustname(c, TRUE);
+		p = adjustname(c);
 		bkupdir = strndup(p, NFILEN);
 		if (bkupdir == NULL)
 			return(FALSE);
@@ -691,67 +727,4 @@ bkupleavetmp(const char *fn)
 		return (TRUE);
 
 	return (FALSE);
-}
-
-/*
- * Expand file names beginning with '~' if appropriate:
- *   1, if ./~fn exists, continue without expanding tilde.
- *   2, else, if username 'fn' exists, expand tilde with home directory path.
- *   3, otherwise, continue and create new buffer called ~fn.
- */
-char *
-expandtilde(const char *fn)
-{
-	struct passwd	*pw;
-	struct stat	 statbuf;
-	const char	*cp;
-	char		 user[LOGIN_NAME_MAX], path[NFILEN];
-	char		*ret;
-	size_t		 ulen, plen;
-
-	path[0] = '\0';
-
-	if (fn[0] != '~' || stat(fn, &statbuf) == 0) {
-		if ((ret = strndup(fn, NFILEN)) == NULL)
-			return (NULL);
-		return(ret);
-	}
-	cp = strchr(fn, '/');
-	if (cp == NULL)
-		cp = fn + strlen(fn); /* point to the NUL byte */
-	ulen = cp - &fn[1];
-	if (ulen >= sizeof(user)) {
-		if ((ret = strndup(fn, NFILEN)) == NULL)
-			return (NULL);
-		return(ret);
-	}
-	if (ulen == 0) /* ~/ or ~ */
-		pw = getpwuid(geteuid());
-	else { /* ~user/ or ~user */
-		memcpy(user, &fn[1], ulen);
-		user[ulen] = '\0';
-		pw = getpwnam(user);
-	}
-	if (pw != NULL) {
-		plen = strlcpy(path, pw->pw_dir, sizeof(path));
-		if (plen == 0 || path[plen - 1] != '/') {
-			if (strlcat(path, "/", sizeof(path)) >= sizeof(path)) {
-				dobeep();				
-				ewprintf("Path too long");
-				return (NULL);
-			}
-		}
-		fn = cp;
-		if (*fn == '/')
-			fn++;
-	}
-	if (strlcat(path, fn, sizeof(path)) >= sizeof(path)) {
-		dobeep();
-		ewprintf("Path too long");
-		return (NULL);
-	}
-	if ((ret = strndup(path, NFILEN)) == NULL)
-		return (NULL);
-
-	return (ret);
 }
