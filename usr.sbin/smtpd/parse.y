@@ -3011,12 +3011,12 @@ nodigits:
 	}
 
 #define allowed_in_string(x) \
-	(isalnum(x) || (ispunct(x) && x != '(' && x != ')' && \
+	(isalnum(x) || x == '/' || (ispunct(x) && x != '(' && x != ')' && \
 	x != '{' && x != '}' && x != '<' && x != '>' && \
 	x != '!' && x != '=' && x != '#' && \
 	x != ','))
 
-	if (isalnum(c) || c == ':' || c == '_') {
+	if (isalnum(c) || c == ':' || c == '_' || c == '/') {
 		do {
 			*p++ = c;
 			if ((size_t)(p-buf) >= sizeof(buf)) {
