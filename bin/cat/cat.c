@@ -47,6 +47,8 @@
 
 #define MAXIMUM(a, b)	(((a) > (b)) ? (a) : (b))
 
+int	 compath(int, int, char **);
+
 int bflag, eflag, nflag, sflag, tflag, vflag;
 int rval;
 
@@ -59,7 +61,7 @@ main(int argc, char *argv[])
 {
 	int ch;
 
-	if (pledge("stdio rpath", NULL) == -1)
+	if (pledge("stdio rpath unveil", NULL) == -1)
 		err(1, "pledge");
 
 	while ((ch = getopt(argc, argv, "benstuv")) != -1) {
@@ -100,6 +102,10 @@ main(int argc, char *argv[])
 
 		cat_file(NULL);
 	} else {
+		if (compath(20, argc, argv) == -1)
+			err(1, "compath");
+		if (unveil(NULL, NULL) == -1)
+			err(1, "unveil(NULL, NULL)");
 		for (; *argv != NULL; argv++)
 			cat_file(*argv);
 	}
