@@ -5970,6 +5970,31 @@ process_wg_commands(void)
 	}
 }
 
+static char *
+wg_humanify(time_t delta)
+{
+	static char		 buf[64];
+	int			 r;
+
+	if (delta > 60 * 60 * 24 * 2)
+		r = snprintf(buf, sizeof(buf), "%lld days ago",
+		    delta / (60 * 60 * 24));
+	else if (delta > 60 * 60 * 2)
+		r = snprintf(buf, sizeof(buf), "%lld hours ago",
+		    delta / (60 * 60));
+	else if (delta > 60 * 2)
+		r = snprintf(buf, sizeof(buf), "%lld minutes ago",
+		    delta / 60);
+	else
+		r = snprintf(buf, sizeof(buf), "%lld seconds ago",
+		    delta);
+
+	if (r == -1 || (size_t)r >= sizeof(buf))
+		strlcpy(buf, "some time ago", sizeof(buf));
+
+	return buf;
+}
+
 void
 wg_status(int ifaliases)
 {
@@ -6036,9 +6061,12 @@ wg_status(int ifaliases)
 			    wg_peer->p_txbytes, wg_peer->p_rxbytes);
 
 			if (wg_peer->p_last_handshake.tv_sec != 0) {
+				time_t d;
+
 				clock_gettime(CLOCK_REALTIME, &now);
-				printf("\t\tlast handshake: %lld seconds ago\n",
-				    now.tv_sec - wg_peer->p_last_handshake.tv_sec);
+				d = now.tv_sec - wg_peer->p_last_handshake.tv_sec;
+				printf("\t\tlast handshake: %s\n",
+				    wg_humanify(d));
 			}
 
 
