@@ -1274,7 +1274,6 @@ ieee80211_node_tx_stopped(struct ieee80211com *ic,
 void
 ieee80211_node_tx_flushed(struct ieee80211com *ic, struct ieee80211_node *ni)
 {
-	printf("in %s\n", __func__);
 	splassert(IPL_NET);
 
 	if ((ic->ic_flags & IEEE80211_F_BGSCAN) == 0)
@@ -1303,7 +1302,6 @@ ieee80211_node_switch_bss(struct ieee80211com *ic, struct ieee80211_node *ni)
 	struct ieee80211_node_switch_bss_arg *sba = ni->ni_unref_arg;
 	struct ieee80211_node *curbs, *selbs;
 
-	printf("in %s\n", __func__);
 	splassert(IPL_NET);
 
 	if ((ic->ic_flags & IEEE80211_F_BGSCAN) == 0)
