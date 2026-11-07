@@ -14,7 +14,6 @@
 #include <ctype.h>
 #include <signal.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "def.h"
 #include "funmap.h"
@@ -84,12 +83,6 @@ static struct KEYMAPE (3) cmodemap = {
 		{ ':', ':', cmode_spec, NULL },
 		{ '}', '}', cmode_brace, NULL }
 	}
-};
-
-/* grammar */
-
-static const char *keywords[] = { /* statements that acceps no brace */
-	"do", "else", "for", "if", "while",
 };
 
 /* Function, Mode hooks */
@@ -244,8 +237,6 @@ getindent(const struct line *lp, int *curi)
 	int astp = FALSE;	/* Asterisk? */
 	int cpos = -1;		/* comment position */
 	int cppp  = FALSE;	/* Preprocessor command? */
-	int keywordp = FALSE;	/* looking at a keyword? */
-	int i;
 
 	*curi = 0;
 
@@ -257,17 +248,6 @@ getindent(const struct line *lp, int *curi)
 			nicol = ntabstop(nicol, curbp->b_tabw);
 		else
 			nicol++;
-	}
-
-	/* Does it starts with a keyword that accepts no braces? */
-	for (i = 0; i < sizeof(keywords)/sizeof(keywords[0]); ++i) {
-		size_t t = strlen(keywords[i]);
-		if (t > llength(lp) - lo)
-			t = llength(lp) - lo;
-		if (!strncmp(lp->l_text+lo, keywords[i], t)) {
-			keywordp = TRUE;
-			break;
-		}
 	}
 
 	/* If last line was blank, choose 0 */
@@ -344,12 +324,6 @@ getindent(const struct line *lp, int *curi)
 	if (colonp) {
 		*curi += cc_colon_indent;
 		newind -= cc_colon_indent;
-	} else if (keywordp && obrace == 0) {
-		/*
-		 * otherwise, if the line starts with a keyword but
-		 * no brace, indent anyway
-		 */
-		newind += cc_basic_indent;
 	}
 
 	*curi -= (cbrace) * cc_basic_indent;
