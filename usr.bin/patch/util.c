@@ -334,6 +334,29 @@ makedirs(const char *filename, bool striplast)
 	free(tmpbuf);
 }
 
+/* ensure filename is reasonable */
+static bool
+isreasonable(const char *path)
+{
+	const char      *p;
+
+	if (*path == '/')
+		return false;
+
+	while ((p = strchr(path, '/')) != NULL) {
+		/* "." is tolerated */
+		if (p - path == 2 && path[0] == '.' && path[1] == '.')
+			return false;
+		path = p+1;
+	}
+
+	/*
+	 * path[0] is NUL when path[-1] is '/' (or path
+	 * was "" from the beginning).  reject also a trailing '..'
+	 */
+	return *path != '\0' && strcmp(path, "..") != 0;
+}
+
 /*
  * Make filenames more reasonable.
  */
