@@ -235,7 +235,7 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 	int			 nullmx = 0;
 
 	if (ar->ar_h_errno && ar->ar_h_errno != NO_DATA &&
-	    ar->ar_h_errno != NOTIMP) {
+	    ar->ar_rcode != NOTIMP) {
 		m_create(s->p,  IMSG_MTA_DNS_HOST_END, 0, 0, -1);
 		m_add_id(s->p, s->reqid);
 		if (ar->ar_rcode == NXDOMAIN)
