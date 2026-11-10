@@ -298,6 +298,8 @@ int _asr_unpack_rr(struct asr_unpack *, struct asr_dns_rr *);
 int _asr_sockaddr_from_str(struct sockaddr *, int, const char *);
 ssize_t _asr_dname_from_fqdn(const char *, char *, size_t);
 ssize_t _asr_addr_as_fqdn(const char *, int, char *, size_t);
+ssize_t _asr_dname_expand(const unsigned char *, size_t, size_t, size_t *,
+    char *, size_t);
 int hnok_lenient(const char *);
 int _asr_is_localhost(const char*);
 

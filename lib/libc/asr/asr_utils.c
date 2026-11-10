@@ -35,8 +35,6 @@
 #include "asr_private.h"
 
 static int dname_check_label(const char *, size_t);
-static ssize_t dname_expand(const unsigned char *, size_t, size_t, size_t *,
-    char *, size_t);
 
 static int unpack_data(struct asr_unpack *, void *, size_t);
 static int unpack_u16(struct asr_unpack *, uint16_t *);
@@ -108,8 +106,8 @@ _asr_dname_from_fqdn(const char *str, char *dst, size_t max)
 	return (res + 1);
 }
 
-static ssize_t
-dname_expand(const unsigned char *data, size_t len, size_t offset,
+ssize_t
+_asr_dname_expand(const unsigned char *data, size_t len, size_t offset,
     size_t *newoffset, char *dst, size_t max)
 {
 	size_t		 n, end, ptr, start;
@@ -242,7 +240,7 @@ unpack_dname(struct asr_unpack *p, char *dst, size_t max)
 	if (p->err)
 		return (-1);
 
-	e = dname_expand(p->buf, p->len, p->offset, &p->offset, dst, max);
+	e = _asr_dname_expand(p->buf, p->len, p->offset, &p->offset, dst, max);
 	if (e == -1) {
 		p->err = EINVAL;
 		return (-1);
