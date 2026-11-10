@@ -93,7 +93,6 @@ lka_imsg(struct mproc *p, struct imsg *imsg)
 
 	case IMSG_GETADDRINFO:
 	case IMSG_GETNAMEINFO:
-	case IMSG_RES_QUERY:
 		resolver_dispatch_request(p, imsg);
 		return;
 

@@ -43,7 +43,6 @@ dispatcher_imsg(struct mproc *p, struct imsg *imsg)
 	case IMSG_GETADDRINFO:
 	case IMSG_GETADDRINFO_END:
 	case IMSG_GETNAMEINFO:
-	case IMSG_RES_QUERY:
 		resolver_dispatch_result(p, imsg);
 		return;
 

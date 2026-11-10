@@ -211,7 +211,6 @@ enum imsg_type {
 	IMSG_GETADDRINFO,
 	IMSG_GETADDRINFO_END,
 	IMSG_GETNAMEINFO,
-	IMSG_RES_QUERY,
 
 	IMSG_SETUP_KEY,
 	IMSG_SETUP_PEER,
@@ -1588,8 +1587,6 @@ void resolver_getaddrinfo(const char *, const char *, const struct addrinfo *,
     void(*)(void *, int, struct addrinfo*), void *);
 void resolver_getnameinfo(const struct sockaddr *, int,
     void(*)(void *, int, const char *, const char *), void *);
-void resolver_res_query(const char *, int, int,
-    void (*cb)(void *, int, int, int, const void *, int), void *);
 void resolver_dispatch_request(struct mproc *, struct imsg *);
 void resolver_dispatch_result(struct mproc *, struct imsg *);
 
