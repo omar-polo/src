@@ -156,9 +156,3 @@ This flag
 .Em should not
 be trusted unless the transport between the nameserver and the resolver
 is secure (e.g. IPsec, trusted network, loopback communication).
-.Sh BUGS
-The data in
-.Li *rdi_data
-should be returned in uncompressed wire format.
-Currently, the data is in compressed format and the caller can't
-uncompress since it doesn't have the full message.
