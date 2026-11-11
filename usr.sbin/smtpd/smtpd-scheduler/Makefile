@@ -9,7 +9,7 @@ BINMODE?=	511
 NOMAN=
 
 SRCS=	aliases.c bounce.c ca.c compress_backend.c config.c control.c \
-	crypto.c dict.c dns.c unpack_dns.c envelope.c esc.c expand.c \
+	crypto.c dict.c dns.c envelope.c esc.c expand.c \
 	forward.c iobuf.c ioev.c limit.c lka.c lka_filter.c \
 	lka_session.c log.c mailaddr.c mda.c mda_mbox.c mda_unpriv.c \
 	mda_variables.c mproc.c mta.c mta_session.c parse.y \
