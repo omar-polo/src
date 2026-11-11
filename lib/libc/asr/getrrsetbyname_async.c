@@ -484,12 +484,98 @@ parse_dns_qsection(const u_char *answer, int size, const u_char **cp, int count)
 	return (head);
 }
 
+static int
+rdata_uncompress(struct dns_rr *rr, const u_char *answer, int size,
+    const u_char *cp)
+{
+	static const struct rtype {
+		int type;
+		size_t prefix;
+		size_t suffix;
+		size_t names;
+	} rtypes[] = {
+		// RFC 1035
+		{ .type = T_CNAME, .names = 1 },
+		{ .type = T_MB, .names = 1 },
+		{ .type = T_MD, .names = 1 },
+		{ .type = T_MF, .names = 1 },
+		{ .type = T_MG, .names = 1 },
+		{ .type = T_MR, .names = 1 },
+		{ .type = T_NS, .names = 1 },
+		{ .type = T_PTR, .names = 1 },
+		{ .type = T_MINFO, .names = 2 },
+		{ .type = T_MX, .prefix = INT16SZ, .names = 1 },
+		{ .type = T_SOA, .names = 2, .suffix = 5 * INT32SZ },
+
+		// RFC 1183
+		{ .type = T_AFSDB, .prefix = INT16SZ, .names = 1 },
+		{ .type = T_RP, .names = 2 },
+		{ .type = T_RT, .prefix = INT16SZ, .names = 1 },
+
+		// RFC 2163
+		{ .type = T_PX, .prefix = INT16SZ, .names = 2 },
+
+		// RFC 2782
+		{ .type = T_SRV, .prefix = 3 * INT16SZ, .names = 1},
+
+		// TODO: NAPTR, SIG, NXT ?
+	};
+	const struct rtype	*rt = NULL;
+	char			 buf[3*INT16SZ + 2*MAXCDNAME + 5*INT32SZ];
+	size_t			 off, end, len, i;
+	ssize_t			 r;
+
+	for (i = 0; i < sizeof(rtypes)/sizeof(rtypes[0]); ++i) {
+		if (rtypes[i].type == rr->type) {
+			rt = &rtypes[i];
+			break;
+		}
+	}
+
+	if (rt == NULL) {	/* nothing to uncompress */
+		if ((rr->rdata = malloc(rr->size)) == NULL)
+			return (-1);
+		memcpy(rr->rdata, cp, rr->size);
+		return (0);
+	}
+
+	off = cp - answer;
+	end = off + rr->size;
+	if (rt->prefix > rr->size)
+		return (-1);
+
+	memcpy(buf, cp, rt->prefix);
+	len = rt->prefix;
+	off += rt->prefix;
+
+	for (i = 0; i < rt->names; ++i) {
+		r = _asr_dname_expand(answer, size, off, &off, buf + len,
+		    sizeof(buf) - len);
+		if (r == -1 || r > MAXCDNAME || off > end)
+			return (-1);
+		len += r;
+	}
+
+	if (end - off != rt->suffix)
+		return (-1);
+
+	memcpy(buf + len, answer + off, rt->suffix);
+	len += rt->suffix;
+
+	if ((rr->rdata = malloc(len)) == NULL)
+		return (-1);
+	memcpy(rr->rdata, buf, len);
+	rr->size = len;
+	return (0);
+}
+
 static struct dns_rr *
 parse_dns_rrsection(const u_char *answer, int size, const u_char **cp,
     int count)
 {
 	struct dns_rr *head, *curr, *prev;
 	int i, length;
+	u_int16_t cursiz;
 	char name[MAXDNAME];
 
 #define NEED(need) \
@@ -551,14 +637,14 @@ parse_dns_rrsection(const u_char *answer, int size, const u_char **cp,
 
 		/* rdata itself */
 		NEED(curr->size);
+		cursiz = curr->size;	/* rdata_uncompress changes this */
 		if (curr->size != 0) {
-			if ((curr->rdata = malloc(curr->size)) == NULL) {
+			if (rdata_uncompress(curr, answer, size, *cp) == -1) {
 				free_dns_rr(head);
 				return (NULL);
 			}
-			memcpy(curr->rdata, *cp, curr->size);
 		}
-		*cp += curr->size;
+		*cp += cursiz;
 	}
 #undef NEED
 
