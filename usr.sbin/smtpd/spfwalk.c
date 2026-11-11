@@ -22,6 +22,7 @@
 #include <netinet/in.h>
 
 #include <arpa/inet.h>
+#include <arpa/nameser.h>
 #include <asr.h>
 #include <ctype.h>
 #include <err.h>
@@ -29,6 +30,7 @@
 #include <event.h>
 #include <limits.h>
 #include <netdb.h>
+#include <resolv.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,24 +38,24 @@
 
 #include "smtpd-defines.h"
 #include "smtpd-api.h"
-#include "unpack_dns.h"
 #include "parser.h"
 
 struct target {
-	void	(*dispatch)(struct dns_rr *, struct target *);
+	char	  name[MAXDNAME];
+	void	(*dispatch)(const struct rdatainfo *, struct target *);
 	int	  cidr4;
 	int	  cidr6;
 };
 
 int spfwalk(int, struct parameter *);
 
-static void	dispatch_txt(struct dns_rr *, struct target *);
-static void	dispatch_mx(struct dns_rr *, struct target *);
-static void	dispatch_a(struct dns_rr *, struct target *);
-static void	dispatch_aaaa(struct dns_rr *, struct target *);
+static void	dispatch_txt(const struct rdatainfo *, struct target *);
+static void	dispatch_mx(const struct rdatainfo *, struct target *);
+static void	dispatch_a(const struct rdatainfo *, struct target *);
+static void	dispatch_aaaa(const struct rdatainfo *, struct target *);
 static void	lookup_record(int, char *, struct target *);
 static void	dispatch_record(struct asr_result *, void *);
-static ssize_t	parse_txt(const char *, size_t, char *, size_t);
+static ssize_t	parse_txt(const unsigned char *, size_t, char *, size_t);
 static int	parse_target(char *, struct target *);
 void *xmalloc(size_t size);
 
@@ -126,11 +128,14 @@ lookup_record(int type, char *record, struct target *tgt)
 		    record);
 		return;
 	}
-	as = res_query_async(record, C_IN, type, NULL);
+	as = getrrsetbyname_async(record, C_IN, type, 0, NULL);
 	if (as == NULL)
-		err(1, "res_query_async");
+		err(1, "getrrsetbyname_async");
 	ntgt = xmalloc(sizeof(*ntgt));
 	*ntgt = *tgt;
+	if (strlcpy(ntgt->name, record, sizeof(ntgt->name))
+	    >= sizeof(ntgt->name))
+		errx(1, "name too long: %s", record);
 	event_asr_run(as, dispatch_record, (void *)ntgt);
 }
 
@@ -138,34 +143,27 @@ void
 dispatch_record(struct asr_result *ar, void *arg)
 {
 	struct target *tgt = arg;
-	struct unpack pack;
-	struct dns_header h;
-	struct dns_query q;
-	struct dns_rr rr;
+	struct rrsetinfo *rr;
+	size_t i;
 
 	/* best effort */
-	if (ar->ar_h_errno && ar->ar_h_errno != NO_DATA)
+	if (ar->ar_rrset_errno != ERRSET_SUCCESS)
 		goto end;
 
-	unpack_init(&pack, ar->ar_data, ar->ar_datalen);
-	unpack_header(&pack, &h);
-	unpack_query(&pack, &q);
-
-	for (; h.ancount; h.ancount--) {
-		if (unpack_rr(&pack, &rr) == -1)
-			break;
-		tgt->dispatch(&rr, tgt);
+	rr = ar->ar_rrsetinfo;
+	for (i = 0; i < rr->rri_nrdatas; ++i) {
+		tgt->dispatch(&rr->rri_rdatas[i], tgt);
 	}
+	freerrset(rr);
 end:
 	free(tgt);
 }
 
 void
-dispatch_txt(struct dns_rr *rr, struct target *tgt)
+dispatch_txt(const struct rdatainfo *rdi, struct target *tgt)
 {
 	char buf[4096];
 	char *argv[512];
-	char buf2[512];
 	struct target ltgt;
 	struct in6_addr ina;
 	char **ap = argv;
@@ -173,9 +171,7 @@ dispatch_txt(struct dns_rr *rr, struct target *tgt)
 	char *record, *end;
 	ssize_t n;
 
-	if (rr->rr_type != T_TXT)
-		return;
-	n = parse_txt(rr->rr.other.rdata, rr->rr.other.rdlen, buf, sizeof(buf));
+	n = parse_txt(rdi->rdi_data, rdi->rdi_length, buf, sizeof(buf));
 	if (n == -1 || n == sizeof(buf))
 		return;
 	buf[n] = '\0';
@@ -217,12 +213,10 @@ dispatch_txt(struct dns_rr *rr, struct target *tgt)
 			continue;
 		}
 		if (strcasecmp("a", *ap) == 0) {
-			print_dname(rr->rr_dname, buf2, sizeof(buf2));
-			buf2[strlen(buf2) - 1] = '\0';
 			ltgt.dispatch = dispatch_a;
-			lookup_record(T_A, buf2, &ltgt);
+			lookup_record(T_A, tgt->name, &ltgt);
 			ltgt.dispatch = dispatch_aaaa;
-			lookup_record(T_AAAA, buf2, &ltgt);
+			lookup_record(T_AAAA, tgt->name, &ltgt);
 			continue;
 		}
 		if (strncasecmp("a:", *ap, 2) == 0) {
@@ -251,10 +245,8 @@ dispatch_txt(struct dns_rr *rr, struct target *tgt)
 			continue;
 		}
 		if (strcasecmp("mx", *ap) == 0) {
-			print_dname(rr->rr_dname, buf2, sizeof(buf2));
-			buf2[strlen(buf2) - 1] = '\0';
 			ltgt.dispatch = dispatch_mx;
-			lookup_record(T_MX, buf2, &ltgt);
+			lookup_record(T_MX, tgt->name, &ltgt);
 			continue;
 		}
 		if (strncasecmp("mx:", *ap, 3) == 0) {
@@ -270,18 +262,19 @@ dispatch_txt(struct dns_rr *rr, struct target *tgt)
 }
 
 void
-dispatch_mx(struct dns_rr *rr, struct target *tgt)
+dispatch_mx(const struct rdatainfo *rdi, struct target *tgt)
 {
-	char buf[512];
+	char buf[MAXDNAME];
 	struct target ltgt;
+	int n;
 
-	if (rr->rr_type != T_MX)
+	if (rdi->rdi_length <= INT16SZ + 1)
 		return;
 
-	print_dname(rr->rr.mx.exchange, buf, sizeof(buf));
-	buf[strlen(buf) - 1] = '\0';
-	if (buf[strlen(buf) - 1] == '.')
-		buf[strlen(buf) - 1] = '\0';
+	n = dn_expand(rdi->rdi_data, rdi->rdi_data + rdi->rdi_length,
+	    rdi->rdi_data + INT16SZ, buf, sizeof(buf));
+	if (n == -1 || n != (int)rdi->rdi_length - INT16SZ)
+		return;
 
 	ltgt = *tgt;
 	ltgt.dispatch = dispatch_a;
@@ -291,16 +284,16 @@ dispatch_mx(struct dns_rr *rr, struct target *tgt)
 }
 
 void
-dispatch_a(struct dns_rr *rr, struct target *tgt)
+dispatch_a(const struct rdatainfo *rdi, struct target *tgt)
 {
 	char buffer[512];
 	const char *ptr;
+	struct in_addr addr;
 
-	if (rr->rr_type != T_A)
+	if (rdi->rdi_length != sizeof(addr))
 		return;
-
-	if ((ptr = inet_ntop(AF_INET, &rr->rr.in_a.addr,
-	    buffer, sizeof buffer))) {
+	memcpy(&addr, rdi->rdi_data, sizeof(addr));
+	if ((ptr = inet_ntop(AF_INET, &addr, buffer, sizeof buffer))) {
 		if (tgt->cidr4 >= 0)
 			printf("%s/%d\n", ptr, tgt->cidr4);
 		else
@@ -309,16 +302,17 @@ dispatch_a(struct dns_rr *rr, struct target *tgt)
 }
 
 void
-dispatch_aaaa(struct dns_rr *rr, struct target *tgt)
+dispatch_aaaa(const struct rdatainfo *rdi, struct target *tgt)
 {
 	char buffer[512];
 	const char *ptr;
+	struct in6_addr addr;
 
-	if (rr->rr_type != T_AAAA)
+	if (rdi->rdi_length != sizeof(addr))
 		return;
+	memcpy(&addr, rdi->rdi_data, sizeof(addr));
 
-	if ((ptr = inet_ntop(AF_INET6, &rr->rr.in_aaaa.addr6,
-	    buffer, sizeof buffer))) {
+	if ((ptr = inet_ntop(AF_INET6, &addr, buffer, sizeof buffer))) {
 		if (tgt->cidr6 >= 0)
 			printf("%s/%d\n", ptr, tgt->cidr6);
 		else
@@ -327,7 +321,7 @@ dispatch_aaaa(struct dns_rr *rr, struct target *tgt)
 }
 
 ssize_t
-parse_txt(const char *rdata, size_t rdatalen, char *dst, size_t dstsz)
+parse_txt(const unsigned char *rdata, size_t rdatalen, char *dst, size_t dstsz)
 {
 	size_t len;
 	ssize_t r = 0;
