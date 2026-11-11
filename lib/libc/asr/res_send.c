@@ -33,7 +33,8 @@ res_send(const u_char *buf, int buflen, u_char *ans, int anslen)
 	struct asr_result ar;
 	size_t len;
 
-	res_init();
+	if (res_init() == -1)
+		return (-1);
 
 	if (ans == NULL || anslen <= 0) {
 		errno = EINVAL;

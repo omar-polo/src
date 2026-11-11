@@ -55,6 +55,8 @@ res_mkquery(int op, const char *dname, int class, int type,
 		return (-1);
 
 	ac = _asr_use_resolver(NULL);
+	if (ac == NULL)
+		return (-1);
 
 	memset(&h, 0, sizeof h);
 	h.id = res_randomid();
