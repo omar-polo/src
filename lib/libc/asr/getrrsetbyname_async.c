@@ -135,6 +135,8 @@ getrrsetbyname_async_run(struct asr_query *as, struct asr_result *ar)
 		/* Got a packet but no answer. */
 		if (ar->ar_count == 0) {
 			free(ar->ar_data);
+			ar->ar_data = NULL;
+			ar->ar_datalen = 0;
 			switch (ar->ar_rcode) {
 			case NXDOMAIN:
 				ar->ar_rrset_errno = ERRSET_NONAME;
@@ -152,6 +154,8 @@ getrrsetbyname_async_run(struct asr_query *as, struct asr_result *ar)
 
 		get_response(ar, ar->ar_data, ar->ar_datalen);
 		free(ar->ar_data);
+		ar->ar_data = NULL;
+		ar->ar_datalen = 0;
 		async_set_state(as, ASR_STATE_HALT);
 		break;
 
