@@ -23,12 +23,14 @@
 #include <netinet/in.h>
 
 #include <asr.h>
+#include <arpa/nameser.h>
 #include <stdlib.h>
 #include <string.h>
+#include <resolv.h>
+#include <netdb.h>
 
 #include "smtpd.h"
 #include "log.h"
-#include "unpack_dns.h"
 
 struct dns_lookup {
 	struct dns_session	*session;
@@ -147,9 +149,9 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 			return;
 		}
 
-		as = res_query_async(s->name, C_IN, T_MX, NULL);
+		as = getrrsetbyname_async(s->name, C_IN, T_MX, 0, NULL);
 		if (as == NULL) {
-			log_warn("warn: res_query_async: %s", s->name);
+			log_warn("warn: getrrsetbyname_async: %s", s->name);
 			m_create(s->p, IMSG_MTA_DNS_HOST_END, 0, 0, -1);
 			m_add_id(s->p, s->reqid);
 			m_add_int(s->p, DNS_EINVAL);
@@ -167,7 +169,7 @@ dns_imsg(struct mproc *p, struct imsg *imsg)
 		m_end(&m);
 		(void)strlcpy(s->name, mx, sizeof(s->name));
 
-		as = res_query_async(domain, C_IN, T_MX, NULL);
+		as = getrrsetbyname_async(domain, C_IN, T_MX, 0, NULL);
 		if (as == NULL) {
 			m_create(s->p, IMSG_MTA_DNS_MX_PREFERENCE, 0, 0, -1);
 			m_add_id(s->p, s->reqid);
@@ -226,13 +228,11 @@ static void
 dns_dispatch_mx(struct asr_result *ar, void *arg)
 {
 	struct dns_session	*s = arg;
-	struct unpack		 pack;
-	struct dns_header	 h;
-	struct dns_query	 q;
-	struct dns_rr		 rr;
-	char			 buf[512];
-	size_t			 found;
-	int			 nullmx = 0;
+	struct rrsetinfo	*rri;
+	struct rdatainfo	*rdi;
+	char			 buf[MAXDNAME];
+	size_t			 i, found;
+	int			 n, pref, nullmx = 0;
 
 	if (ar->ar_h_errno && ar->ar_h_errno != NO_DATA &&
 	    ar->ar_rcode != NOTIMP) {
@@ -246,43 +246,51 @@ dns_dispatch_mx(struct asr_result *ar, void *arg)
 			m_add_int(s->p, DNS_RETRY);
 		m_close(s->p);
 		free(s);
-		free(ar->ar_data);
 		return;
 	}
 
-	unpack_init(&pack, ar->ar_data, ar->ar_datalen);
-	unpack_header(&pack, &h);
-	unpack_query(&pack, &q);
+	if (ar->ar_h_errno == NETDB_SUCCESS &&
+	    ar->ar_rrset_errno != ERRSET_SUCCESS) {
+		m_create(s->p,  IMSG_MTA_DNS_HOST_END, 0, 0, -1);
+		m_add_id(s->p, s->reqid);
+		m_add_int(s->p, DNS_RETRY);
+		m_close(s->p);
+		free(s);
+		return;
+	}
+
+	rri = ar->ar_rrsetinfo;
 
 	found = 0;
-	for (; h.ancount; h.ancount--) {
-		if (unpack_rr(&pack, &rr) == -1)
+	for (i = 0; rri != NULL && i < rri->rri_nrdatas; ++i) {
+		rdi = &rri->rri_rdatas[i];
+		n = dn_expand(rdi->rdi_data, rdi->rdi_data + rdi->rdi_length,
+		    rdi->rdi_data + INT16SZ, buf, sizeof(buf));
+		if (n == -1 || n != (int)rdi->rdi_length - INT16SZ)
 			break;
-		if (rr.rr_type != T_MX)
-			continue;
 
-		print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
-		buf[strlen(buf) - 1] = '\0';
-
-		if ((rr.rr.mx.preference == 0 && !strcmp(buf, "")) ||
+		pref = (rdi->rdi_data[0] << 8) | rdi->rdi_data[1];
+		if ((pref == 0 && !strcmp(buf, "")) ||
 		    !strcmp(buf, "localhost")) {
 			nullmx = 1;
 			continue;
 		}
 
-		dns_lookup_host(s, buf, rr.rr.mx.preference);
+		dns_lookup_host(s, buf, pref);
 		found++;
 	}
-	free(ar->ar_data);
 
 	if (nullmx && found == 0) {
 		m_create(s->p, IMSG_MTA_DNS_HOST_END, 0, 0, -1);
 		m_add_id(s->p, s->reqid);
 		m_add_int(s->p, DNS_NULLMX);
 		m_close(s->p);
+		freerrset(rri);
 		free(s);
 		return;
 	}
+
+	freerrset(rri);
 
 	/* fallback to host if no MX is found. */
 	if (found == 0)
@@ -293,12 +301,11 @@ static void
 dns_dispatch_mx_preference(struct asr_result *ar, void *arg)
 {
 	struct dns_session	*s = arg;
-	struct unpack		 pack;
-	struct dns_header	 h;
-	struct dns_query	 q;
-	struct dns_rr		 rr;
-	char			 buf[512];
-	int			 error;
+	struct rrsetinfo	*rri;
+	struct rdatainfo	*rdi;
+	char			 buf[MAXDNAME];
+	size_t			 i;
+	int			 n, error, pref = 0;
 
 	if (ar->ar_h_errno) {
 		if (ar->ar_rcode == NXDOMAIN)
@@ -311,30 +318,27 @@ dns_dispatch_mx_preference(struct asr_result *ar, void *arg)
 	}
 	else {
 		error = DNS_ENOTFOUND;
-		unpack_init(&pack, ar->ar_data, ar->ar_datalen);
-		unpack_header(&pack, &h);
-		unpack_query(&pack, &q);
-		for (; h.ancount; h.ancount--) {
-			if (unpack_rr(&pack, &rr) == -1)
+		rri = ar->ar_rrsetinfo;
+		for (i = 0; rri != NULL && i < rri->rri_nrdatas; ++i) {
+			rdi = &rri->rri_rdatas[i];
+			n = dn_expand(rdi->rdi_data, rdi->rdi_data + rdi->rdi_length,
+			    rdi->rdi_data + INT16SZ, buf, sizeof(buf));
+			if (n == -1 || n != (int)rdi->rdi_length - INT16SZ)
 				break;
-			if (rr.rr_type != T_MX)
-				continue;
-			print_dname(rr.rr.mx.exchange, buf, sizeof(buf));
-			buf[strlen(buf) - 1] = '\0';
 			if (!strcasecmp(s->name, buf)) {
 				error = DNS_OK;
+				pref = (rdi->rdi_data[0] << 8) | rdi->rdi_data[1];
 				break;
 			}
 		}
+		freerrset(rri);
 	}
-
-	free(ar->ar_data);
 
 	m_create(s->p, IMSG_MTA_DNS_MX_PREFERENCE, 0, 0, -1);
 	m_add_id(s->p, s->reqid);
 	m_add_int(s->p, error);
 	if (error == DNS_OK)
-		m_add_int(s->p, rr.rr.mx.preference);
+		m_add_int(s->p, pref);
 	m_close(s->p);
 	free(s);
 }
