@@ -362,22 +362,20 @@ _asr_use_resolver(void *arg)
 		asr_ctx_ref(ac);
 		return ac;
 	}
-	else {
-		DPRINT("using thread-local resolver\n");
-		priv = _THREAD_PRIVATE_DT(_asr, _asr, _asr_resolver_done_tp,
-		    &_asr);
-		if (*priv == NULL) {
-			DPRINT("setting up thread-local resolver\n");
-			*priv = _asr_resolver();
-		}
-		asr = *priv;
+
+	DPRINT("using thread-local resolver\n");
+	priv = _THREAD_PRIVATE_DT(_asr, _asr, _asr_resolver_done_tp,
+	    &_asr);
+	if (*priv == NULL) {
+		DPRINT("setting up thread-local resolver\n");
+		*priv = _asr_resolver();
 	}
-	if (asr != NULL) {
-		asr_check_reload(asr);
-		asr_ctx_ref(asr->a_ctx);
-		return (asr->a_ctx);
-	}
-	return (NULL);
+	asr = *priv;
+	if (*asr == NULL)
+		return (NULL);
+	asr_check_reload(asr);
+	asr_ctx_ref(asr->a_ctx);
+	return (asr->a_ctx);
 }
 
 static void
